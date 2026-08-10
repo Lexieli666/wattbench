@@ -1,0 +1,235 @@
+# WattBench external data — every number here is REPORTED, NOT MEASURED.
+#
+# Nothing in this file was produced on the benchmark machine. It is snapshotted
+# from public price cards and tariffs so the economics comparison has a dated,
+# checkable basis. Any table or plot that consumes a value from this file must
+# label it "reported, not measured" (plan §1). Measured values live only in
+# results/raw/ and are never blended with these.
+#
+# snapshot_date is the day the value was read from the cited source. Re-read
+# before publishing if the snapshot is more than a few weeks old; API prices in
+# particular move fast.
+
+meta:
+  snapshot_date: "2026-08-09"
+  currency: USD
+  policy: >
+    Sourced, not measured. Prices are list/public rates without negotiated
+    discounts, free tiers, or batch discounts unless a field says otherwise.
+
+# ---------------------------------------------------------------------------
+# Electricity — converts measured joules into dollars.
+# ---------------------------------------------------------------------------
+electricity:
+  primary:
+    name: LADWP Standard Residential (R-1A)
+    usd_per_kwh: 0.277
+    snapshot_date: "2026-08-09"
+    source: "https://www.ladwp.com/account/customer-service/electric-rates"
+    confidence: secondary
+    note: >
+      LADWP publishes a tiered schedule that varies by tier, zone and season,
+      so a single scalar is an approximation. 0.277 is the effective R-1A rate
+      as summarised by third-party rate trackers in 2026 (reported range
+      0.24-0.28/kWh across tiers and zones); it was NOT read off a bill.
+      Because $/1M tokens is linear in this number, analyze.py reports the
+      whole plausible band rather than a single line wherever it matters.
+  sensitivity_band_usd_per_kwh: [0.24, 0.33]
+  alternates:
+    - name: LADWP Time-of-Use Residential (R-1B), off-peak
+      usd_per_kwh: 0.244
+      snapshot_date: "2026-08-09"
+      confidence: secondary
+    - name: LADWP Time-of-Use Residential (R-1B), peak
+      usd_per_kwh: 0.330
+      snapshot_date: "2026-08-09"
+      confidence: secondary
+
+# ---------------------------------------------------------------------------
+# Hardware — the amortised half of the owned-hardware cost model.
+# ---------------------------------------------------------------------------
+hardware:
+  gpu:
+    model: NVIDIA GeForce RTX 4090 (24GB)
+    launch_msrp_usd: 1599
+    street_price_usd: 2100
+    street_price_band_usd: [1850, 3200]
+    snapshot_date: "2026-08-09"
+    confidence: secondary
+    source: "public retail/used listing trackers (Amazon, Newegg, eBay aggregators)"
+    note: >
+      The 4090 is discontinued, so 2026 street prices sit well above the 2022
+      MSRP and vary by a factor of ~2 between reference and premium SKUs.
+      street_price_usd is the low-to-mid reference-card figure; the band is
+      carried through the break-even chart because the answer is sensitive to
+      it. This card was already owned, so no purchase was made for this project.
+  amortization_years: 3
+  amortization_note: >
+    Card only. The rest of the host (CPU, RAM, PSU, chassis) is deliberately
+    excluded and the exclusion is stated wherever the owned-hardware line
+    appears -- a full-system amortisation would raise the owned line and push
+    break-even volumes up.
+  # Host draw is not included in J/token: power_log.py measures the GPU rail
+  # only (nvidia-smi power.draw). The README states this scope explicitly.
+  host_overhead_measured: false
+
+# ---------------------------------------------------------------------------
+# Rental — the "hypothetical rental" self-host variant (plan §1.3).
+# ---------------------------------------------------------------------------
+rental:
+  note: >
+    Rental rates already bundle electricity, so the rental line must NOT also
+    add the measured energy cost. analyze.py enforces this.
+  options:
+    - provider: RunPod
+      sku: RTX 4090 (24GB), Community Cloud
+      usd_per_hour: 0.34
+      snapshot_date: "2026-08-09"
+      source: "https://www.runpod.io/gpu-models/rtx-4090"
+      confidence: primary
+    - provider: RunPod
+      sku: RTX 4090 (24GB), Secure Cloud
+      usd_per_hour: 0.69
+      snapshot_date: "2026-08-09"
+      source: "https://www.runpod.io/gpu-models/rtx-4090"
+      confidence: primary
+
+# ---------------------------------------------------------------------------
+# API list prices, per million tokens.
+#
+# CAPABILITY WARNING: these are price cards for models that are not equivalent
+# to a local Qwen2.5-7B/14B. Frontier rows are included to show the price
+# ceiling, not to claim substitutability. The only capability evidence in this
+# project is the E2 GSM8K exact-match guard, and it scopes claims to that task
+# alone. Open-weight rows are the closest to a like-for-like comparison because
+# they serve the same weight class this benchmark runs locally.
+# ---------------------------------------------------------------------------
+api_prices:
+  open_weight_hosted:
+    - provider: DeepInfra
+      model: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      usd_per_1m_input: 0.02
+      usd_per_1m_output: 0.04
+      tier: standard
+      snapshot_date: "2026-08-09"
+      source: "https://deepinfra.com/pricing"
+      confidence: primary
+      weight_class_comparable: true
+    - provider: DeepInfra
+      model: Qwen3-14B
+      usd_per_1m_input: 0.12
+      usd_per_1m_output: 0.24
+      tier: standard
+      snapshot_date: "2026-08-09"
+      source: "https://deepinfra.com/pricing"
+      confidence: primary
+      weight_class_comparable: true
+      note: "Qwen3 generation, not the Qwen2.5 served locally."
+    - provider: DeepInfra
+      model: Qwen3-32B
+      usd_per_1m_input: 0.08
+      usd_per_1m_output: 0.28
+      tier: standard
+      snapshot_date: "2026-08-09"
+      source: "https://deepinfra.com/pricing"
+      confidence: primary
+      weight_class_comparable: true
+      note: "Qwen3 generation, not the Qwen2.5 served locally."
+    - provider: DeepInfra
+      model: Qwen2.5-72B-Instruct
+      usd_per_1m_input: 0.36
+      usd_per_1m_output: 0.40
+      tier: standard
+      snapshot_date: "2026-08-09"
+      source: "https://deepinfra.com/pricing"
+      confidence: primary
+      weight_class_comparable: false
+      note: "Same family as the local ladder but 72B -- above what a 4090 serves."
+    - provider: Together AI
+      model: Qwen2.5-7B-Instruct-Turbo
+      usd_per_1m_input: 0.30
+      usd_per_1m_output: 0.30
+      tier: serverless
+      snapshot_date: "2026-08-09"
+      source: "https://www.together.ai/pricing"
+      confidence: primary
+      weight_class_comparable: true
+      note: >
+        The single most directly comparable row: same model family and size as
+        the E1/E2 subject (Qwen2.5-7B-Instruct), hosted.
+    - provider: Together AI
+      model: Llama-3.1-8B-Instruct-Lite
+      usd_per_1m_input: 0.14
+      usd_per_1m_output: 0.14
+      tier: serverless
+      snapshot_date: "2026-08-09"
+      source: "https://www.together.ai/pricing"
+      confidence: primary
+      weight_class_comparable: true
+
+  frontier:
+    - provider: Anthropic
+      model: claude-opus-5
+      usd_per_1m_input: 5.00
+      usd_per_1m_output: 25.00
+      snapshot_date: "2026-08-09"
+      source: "https://platform.claude.com/docs/en/about-claude/pricing"
+      confidence: primary
+      weight_class_comparable: false
+    - provider: Anthropic
+      model: claude-sonnet-5
+      usd_per_1m_input: 2.00
+      usd_per_1m_output: 10.00
+      snapshot_date: "2026-08-09"
+      source: "https://platform.claude.com/docs/en/about-claude/pricing"
+      confidence: primary
+      weight_class_comparable: false
+      note: >
+        Introductory pricing through 2026-08-31; reverts to $3/$15 per MTok on
+        2026-09-01. If this repo is read after that date, the line has moved.
+    - provider: Anthropic
+      model: claude-haiku-4-5
+      usd_per_1m_input: 1.00
+      usd_per_1m_output: 5.00
+      snapshot_date: "2026-08-09"
+      source: "https://platform.claude.com/docs/en/about-claude/pricing"
+      confidence: primary
+      weight_class_comparable: false
+    - provider: OpenAI
+      model: gpt-5.2
+      usd_per_1m_input: 0.875
+      usd_per_1m_output: 7.00
+      snapshot_date: "2026-08-09"
+      source: "third-party price trackers; openai.com/api/pricing returned HTTP 403 to this harness"
+      confidence: secondary
+      weight_class_comparable: false
+      note: >
+        Could not be read from the vendor page directly, so it is marked
+        secondary and is excluded from the headline break-even chart. Kept for
+        context only.
+
+# ---------------------------------------------------------------------------
+# Third-party latency — context only, never compared against measured TTFT.
+# ---------------------------------------------------------------------------
+third_party_latency:
+  status: not_collected
+  note: >
+    Plan §1.2 allows a dated snapshot of a public latency tracker for
+    qualitative context. Not collected as of 2026-08-09. It is not needed for
+    any headline claim: every measured latency number in this repo is
+    self-hosted, and no measured-vs-reported latency comparison is made.
+    "not run" rather than an estimate.
+
+# ---------------------------------------------------------------------------
+# Datacenter reference (plan §0/§1.1) — cited, never plotted as a data point.
+# ---------------------------------------------------------------------------
+datacenter_reference:
+  name: InferenceMAX / InferenceX (SemiAnalysis)
+  source: "https://inferencemax.ai/"
+  snapshot_date: "2026-08-09"
+  confidence: primary
+  note: >
+    Continuous open-source inference benchmarking on datacenter hardware with
+    tokens-per-dollar and tokens-per-watt metrics. Cited in the README as prior
+    art and as the origin of the economics vocabulary. No number from it is
+    plotted alongside a measured WattBench value.

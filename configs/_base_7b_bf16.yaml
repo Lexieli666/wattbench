@@ -1,0 +1,41 @@
+# Reference server for E0, E1 and the BF16 arm of E2.
+# These flags are frozen for the whole series: changing any of them changes the
+# server fingerprint, and any point measured under different flags is not
+# comparable with the rest and must be rerun.
+experiment: base
+description: Qwen2.5-7B-Instruct BF16 reference server, chat shape
+
+server:
+  model: Qwen/Qwen2.5-7B-Instruct
+  revision: null
+  quantization: null
+  dtype: bfloat16
+  max_model_len: 4096          # fits the RAG shape (2048 in + 256 out) with headroom
+  gpu_memory_utilization: 0.90
+  max_num_seqs: 256
+  enable_prefix_caching: false
+  port: 8000
+  extra_args: []
+  load_timeout_s: 900
+
+load:
+  dataset: random
+  input_len: 512
+  output_len: 128
+  request_rate: 4.0
+  burstiness: 1.0
+  num_prompts: auto
+  max_concurrency: null
+  seed: 0
+  ignore_eos: true
+  extra_args: []
+
+protocol:
+  warmup_s: 30
+  warmup_prompts: 32
+  min_duration_s: 180
+  min_requests: 200
+
+slo:
+  ttft_p95_s: 1.0
+  e2e_p95_s: 10.0
