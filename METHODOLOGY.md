@@ -83,22 +83,39 @@ E0 durations were 202.2316 s, 202.2287 s and 202.2019 s, and throughput is just
 
 Throughput only becomes a real measurement of the hardware **at saturation**,
 where the queue grows and duration is set by service rate rather than by the
-schedule — which is exactly the regime E1's high-rate points probe. The
-resolution limits this project actually uses come from metrics that do reflect
-the card: energy per token (CV 0.20%), mean power (0.27%), E2E p95 (0.63%) and
-TTFT p95 (1.31%, the binding constraint). `analyze.py` detects the
-schedule-pinned condition and says so instead of quoting the flattering figure.
+schedule — which is exactly the regime E1's high-rate points probe.
+`analyze.py` detects the schedule-pinned condition and says so instead of
+quoting the flattering figure.
+
+### The resolution limits this project actually uses
+
+Measured on the pinned configuration — the same one E1–E3 run under:
+
+| Metric | CV | Smallest difference claimed |
+|---|---|---|
+| Energy per output token | 0.16% | 0.3% |
+| Mean GPU power | 0.25% | 0.5% |
+| E2E p95 | 0.41% | 0.8% |
+| **TTFT p95** | **0.48%** | **1.0%** (binding) |
+
+No E0 run tripped a thermal, clock-sag, sample-gap or power-limit flag; the card
+held 2655 MHz at 77 °C, 343 W.
 
 ### The temperature pin was measured, not assumed
 
 `ignore_eos` fixes the token count, so pinning temperature "should not" change
 throughput or energy. It does, slightly: a control run of the E0 configuration
 with `temperature: 0` drew **+0.98% mean power** and ran **−1.64% on ITL p50**
-versus the server default — small, but 3–6 CVs outside E0's band.
+versus the server default — small, but 3–6 CVs outside the unpinned band.
 
-So the pin is not free, and E0 was re-run under the pin so that the variance bar
-is measured in the same configuration as the experiments it bounds. The unpinned
+So the pin is not free, and E0 was re-run under it so the variance bar is
+measured in the same configuration as the experiments it bounds. The unpinned
 runs remain committed as superseded records rather than being deleted.
+
+Pinning also **halved the run-to-run variance** — TTFT p95 CV fell from 1.31% to
+0.48%, energy from 0.20% to 0.16% — which is the expected consequence of
+removing sampling randomness: identical token streams produce identical compute.
+That is a second, independent reason to pin it.
 
 **Other GPU consumers are closed before measured runs.** The desktop's residual
 draw is part of the measured idle baseline and is subtracted; a browser
