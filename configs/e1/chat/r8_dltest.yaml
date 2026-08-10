@@ -1,0 +1,21 @@
+# Not a reported E1 point. Tagged E1-dltest so it stays out of the sweep tables.
+#
+# E3 needs ~26GB more weights, and downloading them takes ~2.5h at this
+# connection's ~2.9 MB/s. Running that concurrently with measured benchmarks
+# would save hours -- but only if it demonstrably does not perturb the
+# measurement. This point is byte-identical to configs/e1/chat/r8.yaml and is
+# run WHILE a download is saturating the link, so the comparison against the
+# quiet r8 point answers the question with a measurement instead of a guess.
+#
+# Decision rule: if every metric lands inside E0's resolution limits, downloads
+# may run alongside later experiments. Otherwise they wait.
+extends: ../../_base_7b_bf16.yaml
+experiment: E1-dltest
+point_id: e1_chat_7b_bf16_r8_dltest
+description: E1 chat r8 repeated with a concurrent weight download, to test interference
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 8
+  num_prompts: 1600
