@@ -1,0 +1,54 @@
+# --- Model weights and caches (never commit) ---
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+models/
+weights/
+.cache/
+huggingface/
+hf_cache/
+
+# --- Virtualenvs (this project's venv lives outside the repo, on ext4) ---
+venv/
+.venv/
+env/
+wattbench-venv/
+
+# --- Secrets ---
+.env
+.env.*
+*.pem
+*.key
+token
+.hf_token
+.huggingface/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Parent-directory coaching material must never enter this repo ---
+01-PLAN.md
+CLAUDE_CODE_PROMPT.md
+
+# --- Scratch ---
+scratch/
+tmp/
+*.tmp
+
+# Transient server bookkeeping (pid / fingerprint of the live vLLM process)
+results/.state/
+
+# NOTE: results/raw/ is deliberately NOT ignored. Raw benchmark output is committed.
