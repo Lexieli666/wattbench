@@ -18,19 +18,31 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FORCE_ARGS=()
 CONFIGS=()
+SERIES=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force) FORCE_ARGS+=(--force); shift ;;
+    --series) SERIES="$2"; shift 2 ;;
     -h|--help) sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) CONFIGS+=("$1"); shift ;;
   esac
 done
 
 if [[ ${#CONFIGS[@]} -eq 0 ]]; then
-  echo "usage: ./sweep.sh [--force] CONFIG.yaml [CONFIG.yaml ...]" >&2
+  echo "usage: ./sweep.sh --series NAME [--force] CONFIG.yaml [CONFIG.yaml ...]" >&2
   exit 1
 fi
+if [[ -z "$SERIES" ]]; then
+  echo "FATAL: --series is required. It names the idle baseline this sweep's" >&2
+  echo "       energy numbers are measured against, e.g. --series E1-chat" >&2
+  exit 1
+fi
+
+# A fresh idle baseline for this series, measured before any weights are
+# loaded. The GPU must be otherwise idle right now.
+echo "[sweep] measuring idle baseline for series '$SERIES' before starting"
+bash "$REPO/baseline.sh" "$SERIES"
 
 LOG_DIR="$REPO/results/sweep_logs"
 mkdir -p "$LOG_DIR"

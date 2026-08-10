@@ -471,6 +471,14 @@ def assemble(args: argparse.Namespace) -> int:
             "energy_j": energy_j,
             "incremental_energy_j": incr_j,
             "idle_baseline_w": power.get("idle_baseline_w"),
+            # Which baseline measurement was subtracted. Idle draw drifts
+            # between sessions, so an incremental J/token is only interpretable
+            # alongside the baseline it was computed against.
+            "idle_baseline_source": {
+                "file": args.idle_baseline_file,
+                "series": args.idle_baseline_series,
+                "measured_at": args.idle_baseline_measured_at,
+            },
             "mean_power_w": power.get("mean_power_w"),
             "window_s": power.get("integrated_s"),
             "flags": power.get("flags", []),
@@ -676,6 +684,9 @@ def main() -> int:
     a.add_argument("--server-log")
     a.add_argument("--out", required=True)
     a.add_argument("--status", default="ok")
+    a.add_argument("--idle-baseline-file")
+    a.add_argument("--idle-baseline-series")
+    a.add_argument("--idle-baseline-measured-at")
     a.add_argument("--started-at")
     a.add_argument("--finished-at")
     a.add_argument("--window-start")

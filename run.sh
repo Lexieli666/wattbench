@@ -85,6 +85,34 @@ eval "$("$PY" "$REPO/harness.py" export-env "$CONFIG")"
 log() { printf '[run %s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 iso() { date +%Y-%m-%dT%H:%M:%S.%3N; }
 
+# --- idle baseline: fresh, per series -------------------------------------
+# Idle draw drifts between sessions, so a stale baseline would quietly bias
+# every idle-subtracted J/token. Refuse to run against one rather than silently
+# subtracting a number measured under different conditions.
+BASELINE_MAX_AGE_H="${WATTBENCH_BASELINE_MAX_AGE_H:-12}"
+BASELINE_PTR="$STATE_DIR/current_baseline"
+WB_IDLE_FILE=""
+if [[ -f "$BASELINE_PTR" ]]; then
+  candidate="$(cat "$BASELINE_PTR")"
+  if [[ -f "$candidate" ]]; then
+    age_h=$(( ( $(date +%s) - $(stat -c %Y "$candidate") ) / 3600 ))
+    if (( age_h < BASELINE_MAX_AGE_H )); then
+      WB_IDLE_FILE="$candidate"
+    else
+      log "FATAL: idle baseline $(basename "$candidate") is ${age_h}h old (limit ${BASELINE_MAX_AGE_H}h)."
+      log "       Measure a fresh one for this series:  ./baseline.sh <series>"
+      exit 1
+    fi
+  fi
+fi
+if [[ -z "$WB_IDLE_FILE" ]]; then
+  log "FATAL: no idle baseline for this session."
+  log "       Measure one before the series:  ./baseline.sh <series>"
+  log "       (override for a throwaway run with WATTBENCH_ALLOW_NO_BASELINE=1)"
+  [[ "${WATTBENCH_ALLOW_NO_BASELINE:-}" == "1" ]] || exit 1
+  log "WARN: proceeding without a baseline; incremental energy will be absent"
+fi
+
 # --- resumability ---------------------------------------------------------
 existing="$(find "$RAW" -maxdepth 1 -name "${WB_POINT_ID}__*.json" -print -quit 2>/dev/null || true)"
 if [[ -n "$existing" && $FORCE -eq 0 ]]; then
@@ -275,13 +303,16 @@ tail -n 2000 "$SERVER_LOG_LIVE" > "$SERVER_LOG" 2>/dev/null || true
 
 # --- energy ---------------------------------------------------------------
 IDLE_ARGS=()
-IDLE_FILE="$REPO/results/idle_baseline.json"
-if [[ -f "$IDLE_FILE" ]]; then
-  IDLE_W="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1]))['idle_power_w'])" "$IDLE_FILE")"
+IDLE_NOTE_ARGS=()
+if [[ -n "${WB_IDLE_FILE:-}" && -f "$WB_IDLE_FILE" ]]; then
+  IDLE_W="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1]))['idle_power_w'])" "$WB_IDLE_FILE")"
+  IDLE_SERIES="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1])).get('series') or '?')" "$WB_IDLE_FILE")"
+  IDLE_AT="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1])).get('measured_at') or '?')" "$WB_IDLE_FILE")"
   IDLE_ARGS=(--idle-baseline-w "$IDLE_W")
-  log "idle baseline: ${IDLE_W} W"
-else
-  log "WARN: no results/idle_baseline.json; incremental energy will be absent"
+  IDLE_NOTE_ARGS=(--idle-baseline-file "$(basename "$WB_IDLE_FILE")"
+                  --idle-baseline-series "$IDLE_SERIES"
+                  --idle-baseline-measured-at "$IDLE_AT")
+  log "idle baseline: ${IDLE_W} W (series '${IDLE_SERIES}', measured ${IDLE_AT})"
 fi
 
 "$PY" "$REPO/power_log.py" integrate \
@@ -315,6 +346,7 @@ for n in ${NOTES+"${NOTES[@]}"}; do NOTE_ARGS+=(--note "$n"); done
   --status "$STATUS" \
   --started-at "$STARTED_AT" --finished-at "$FINISHED_AT" \
   --window-start "$WINDOW_START" --window-end "$WINDOW_END" \
+  ${IDLE_NOTE_ARGS+"${IDLE_NOTE_ARGS[@]}"} \
   ${NOTE_ARGS+"${NOTE_ARGS[@]}"} \
   --out "$RESULT_JSON"
 
