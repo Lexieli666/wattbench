@@ -141,6 +141,40 @@ Two consequences, both applied:
 This is why the reference configuration is repeated rather than run once: a
 single run cannot tell you which of its digits are real.
 
+### A background download destroys latency measurements
+
+Weight downloads were kept off the machine during measured runs on the
+assumption that ~3 MB/s of network traffic was negligible against a GPU-bound
+workload. That assumption was wrong, and measuring it was worth the twelve
+minutes it cost.
+
+Control and treatment ran back-to-back on one server — same session, same
+configuration, same offered load — with the download as the only difference:
+
+| Metric | quiet | with download | change |
+|---|---|---|---|
+| Output throughput | 1001 tok/s | 1010 tok/s | +0.9% |
+| **TTFT p50** | 166.3 ms | 395.1 ms | **+138%** |
+| **TTFT p95** | 470.8 ms | 4327 ms | **+819%** |
+| **ITL p50** | 20.1 ms | 36.2 ms | **+80%** |
+| **E2E p95** | 10.6 s | 26.8 s | **+153%** |
+| Mean GPU power | 359.3 W | 336.2 W | −6.4% |
+| J per output token | 0.375 | 0.349 | −6.9% |
+
+The mechanism is client-side starvation, not server contention. `vllm bench
+serve` is an asyncio client on the same host; a saturated link delays both
+request dispatch and the reading of streamed tokens, which is why *inter-token*
+latency rises 80%. The GPU is left underfed — hence lower power and lower
+energy per token — while the fixed arrival schedule still drives throughput to
+roughly its usual value.
+
+That combination is the dangerous part: **throughput and energy look almost
+normal while latency is off by a factor of nine.** A benchmark that reported
+only tokens/s and watts would have published this as a clean run.
+
+Downloads are therefore paused for the duration of every measured series, and
+no point is compared across that boundary.
+
 ### The temperature pin was measured, not assumed
 
 `ignore_eos` fixes the token count, so pinning temperature "should not" change
