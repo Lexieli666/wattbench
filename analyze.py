@@ -57,7 +57,15 @@ NOT_RUN = "not run"
 # --------------------------------------------------------------------------
 
 
-def load_results(experiment: str | None = None, include_failed: bool = False) -> list[dict]:
+def load_results(experiment: str | None = None, include_failed: bool = False,
+                 include_superseded: bool = False) -> list[dict]:
+    """Load raw results, keeping only the newest run of each point by default.
+
+    Re-running a point (after a harness fix, or a config correction) leaves the
+    earlier run on disk and in git -- raw data is append-only -- but analysis
+    should use the current one. Superseded runs are counted and announced, never
+    silently dropped.
+    """
     out = []
     for path in sorted(glob.glob(os.path.join(RAW, "*.json"))):
         if path.endswith(".power.json"):
@@ -76,7 +84,27 @@ def load_results(experiment: str | None = None, include_failed: bool = False) ->
         if experiment and r.get("experiment") != experiment:
             continue
         out.append(r)
-    return out
+
+    if include_superseded:
+        return out
+
+    # Filenames are <point_id>__<YYYYmmddTHHMMSS>.json, so lexical order on the
+    # filename is chronological order.
+    newest: dict[str, dict] = {}
+    superseded = 0
+    for r in out:
+        pid = r.get("point_id") or r["_path"]
+        prev = newest.get(pid)
+        if prev is None or r["_path"] > prev["_path"]:
+            if prev is not None:
+                superseded += 1
+            newest[pid] = r
+        else:
+            superseded += 1
+    if superseded:
+        print(f"[analyze] {superseded} superseded run(s) excluded; "
+              f"use --include-superseded to see them", file=sys.stderr)
+    return sorted(newest.values(), key=lambda r: r["_path"])
 
 
 def load_pricing() -> dict:
@@ -173,7 +201,8 @@ def row_view(r: dict) -> dict:
 
 
 def cmd_summary(args: argparse.Namespace) -> str:
-    rows = [row_view(r) for r in load_results(args.experiment, include_failed=True)]
+    rows = [row_view(r) for r in load_results(args.experiment, include_failed=True,
+                                          include_superseded=getattr(args, "include_superseded", False))]
     if not rows:
         return "No raw results yet. Nothing measured; nothing to report."
     body = [
@@ -214,7 +243,8 @@ def cv(values: list[float]) -> float | None:
 
 
 def cmd_variance(args: argparse.Namespace) -> str:
-    rows = [row_view(r) for r in load_results(args.experiment or "E0")]
+    rows = [row_view(r) for r in load_results(args.experiment or "E0",
+        include_superseded=getattr(args, "include_superseded", False))]
     if len(rows) < 2:
         return (f"E0 variance: {NOT_RUN} — need at least 2 repeats of the reference "
                 f"configuration, found {len(rows)}.")
@@ -283,7 +313,8 @@ def shape_of(r: dict) -> str:
 
 
 def cmd_sweep(args: argparse.Namespace) -> str:
-    rows = [row_view(r) for r in load_results(args.experiment or "E1")]
+    rows = [row_view(r) for r in load_results(args.experiment or "E1",
+        include_superseded=getattr(args, "include_superseded", False))]
     if not rows:
         return f"E1 load sweep: {NOT_RUN}."
 
@@ -358,7 +389,8 @@ def max_sustainable_rate(srows: list[dict]) -> float | None:
 
 
 def cmd_frontier(args: argparse.Namespace) -> str:
-    results = load_results(args.experiment or "E3", include_failed=True)
+    results = load_results(args.experiment or "E3", include_failed=True,
+        include_superseded=getattr(args, "include_superseded", False))
     if not results:
         return f"E3 model-size frontier: {NOT_RUN}."
     rows = [row_view(r) for r in results]
@@ -471,7 +503,8 @@ def pick_economics_point(rows: list[dict]) -> dict | None:
 
 def cmd_economics(args: argparse.Namespace) -> str:
     pricing = load_pricing()
-    rows = [row_view(r) for r in load_results(args.experiment or "E1")]
+    rows = [row_view(r) for r in load_results(args.experiment or "E1",
+        include_superseded=getattr(args, "include_superseded", False))]
     if not rows:
         return (f"Economics: {NOT_RUN} — no E1 results to price. The cost model "
                 f"needs a measured throughput and a measured J/token.")
@@ -843,7 +876,8 @@ def cmd_plots(args: argparse.Namespace) -> str:
 
 def cmd_all(args: argparse.Namespace) -> str:
     os.makedirs(TABLES, exist_ok=True)
-    ns = argparse.Namespace(experiment=None)
+    ns = argparse.Namespace(experiment=None,
+                            include_superseded=getattr(args, "include_superseded", False))
     sections = {
         "summary.md": cmd_summary(ns),
         "e0_variance.md": cmd_variance(ns),
@@ -866,6 +900,8 @@ def main() -> int:
     for name in ("summary", "variance", "sweep", "frontier", "economics", "plots", "all"):
         p = sub.add_parser(name)
         p.add_argument("--experiment", default=None)
+        p.add_argument("--include-superseded", action="store_true",
+                       help="include earlier runs of a point that was re-run")
     args = ap.parse_args()
     fn = {
         "summary": cmd_summary, "variance": cmd_variance, "sweep": cmd_sweep,

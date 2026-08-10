@@ -32,6 +32,10 @@ load:
   max_concurrency: null
   seed: 0
   ignore_eos: true
+  # Pinned rather than left to the server: vLLM 0.26's bench stopped
+  # forcing greedy decoding, and each checkpoint's generation_config
+  # default differs, which would vary sampling across the E3 ladder.
+  temperature: 0.0
   extra_args: []
 
 protocol:

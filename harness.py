@@ -63,6 +63,11 @@ DEFAULTS = {
         "max_concurrency": None,
         "seed": 0,
         "ignore_eos": True,
+        # null means "whatever the server defaults to" -- a per-checkpoint
+        # property from generation_config.json, so it differs across the E3
+        # ladder. The base configs pin it to 0 for that reason; the default
+        # stays null so a config that does not pin it is visibly not pinned.
+        "temperature": None,
         "extra_args": [],
     },
     "protocol": {
@@ -206,6 +211,7 @@ def export_env(cfg: dict) -> str:
         f"WB_SEED={shlex.quote(str(l['seed']))}",
         f"WB_MAX_CONCURRENCY={shlex.quote('' if l.get('max_concurrency') in (None, '') else str(l['max_concurrency']))}",
         f"WB_IGNORE_EOS={shlex.quote('1' if l.get('ignore_eos') else '')}",
+        f"WB_TEMPERATURE={shlex.quote('' if l.get('temperature') is None else str(l['temperature']))}",
         f"WB_DATASET={shlex.quote(str(l['dataset']))}",
         f"WB_LOAD_EXTRA={shlex.quote(' '.join(shlex.quote(str(a)) for a in (l.get('extra_args') or [])))}",
         f"WB_SLO_TTFT_S={shlex.quote(str(cfg['slo']['ttft_p95_s']))}",
