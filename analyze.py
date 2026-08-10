@@ -999,14 +999,30 @@ def plot_energy_vs_load(rows: list[dict], path: str) -> bool:
     return True
 
 
-def plot_breakeven(rows: list[dict], pricing: dict, path: str) -> bool:
-    """$/1M output tokens vs offered load, with API list prices overlaid."""
+def plot_breakeven(rows: list[dict], pricing: dict, path: str,
+                   shape: str | None = None) -> bool:
+    """$/1M output tokens vs offered load, with API list prices overlaid.
+
+    ONE traffic shape per chart. Cost depends on throughput, which depends on
+    the request shape, so plotting chat and RAG points on a shared x-axis would
+    put two different measurements at the same offered rate and read as one
+    line. The shape is named in the subtitle so the chart cannot be quoted
+    without it.
+    """
     plt = _style()
-    pts = sorted(
-        [r for r in rows if r["out_tok_throughput"] and r["j_per_out_tok"]
-         and r["request_rate"] not in (None, "inf")],
-        key=lambda r: float(r["request_rate"]),
-    )
+    candidates = [r for r in rows if r["out_tok_throughput"] and r["j_per_out_tok"]
+                  and r["request_rate"] not in (None, "inf")]
+    if shape is None:
+        # Default to the shape with the most measured points; ties go to the
+        # smaller input length, which is the chat shape.
+        by_shape: dict[str, list[dict]] = {}
+        for r in candidates:
+            by_shape.setdefault(shape_of(r), []).append(r)
+        if not by_shape:
+            return False
+        shape = sorted(by_shape, key=lambda k: (-len(by_shape[k]), k))[0]
+    pts = sorted([r for r in candidates if shape_of(r) == shape],
+                 key=lambda r: float(r["request_rate"]))
     if not pts:
         return False
 
@@ -1070,7 +1086,7 @@ def plot_breakeven(rows: list[dict], pricing: dict, path: str) -> bool:
     ax.set_xlabel("Offered load (requests/s, Poisson arrivals)")
     ax.set_ylabel("Cost per 1M output tokens (USD)")
     ax.set_title("Self-hosting cost falls with load; API list prices do not\n"
-                 "RTX 4090, Qwen2.5-7B BF16, vLLM")
+                 f"RTX 4090, Qwen2.5-7B BF16, vLLM — {shape} traffic")
     # Legend carries only the measured lines; the dashed levels are labelled
     # in place, and the footnote says what they are.
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.19), ncol=2,
@@ -1084,13 +1100,24 @@ def plot_breakeven(rows: list[dict], pricing: dict, path: str) -> bool:
     return True
 
 
-def plot_goodput(rows: list[dict], path: str) -> bool:
-    """Offered vs achieved vs SLO-meeting throughput — where saturation begins."""
+def plot_goodput(rows: list[dict], path: str, shape: str | None = None) -> bool:
+    """Offered vs achieved vs SLO-meeting throughput — where saturation begins.
+
+    One shape per chart, for the same reason as the cost chart: two shapes share
+    an x-axis but not a service rate.
+    """
     plt = _style()
-    pts = sorted(
-        [r for r in rows if r["req_throughput"] and r["request_rate"] not in (None, "inf")],
-        key=lambda r: float(r["request_rate"]),
-    )
+    candidates = [r for r in rows
+                  if r["req_throughput"] and r["request_rate"] not in (None, "inf")]
+    if shape is None:
+        by_shape: dict[str, list[dict]] = {}
+        for r in candidates:
+            by_shape.setdefault(shape_of(r), []).append(r)
+        if not by_shape:
+            return False
+        shape = sorted(by_shape, key=lambda k: (-len(by_shape[k]), k))[0]
+    pts = sorted([r for r in candidates if shape_of(r) == shape],
+                 key=lambda r: float(r["request_rate"]))
     if not pts:
         return False
     x = [float(p["request_rate"]) for p in pts]
@@ -1111,7 +1138,7 @@ def plot_goodput(rows: list[dict], path: str) -> bool:
     ax.set_xlabel("Offered load (requests/s)")
     ax.set_ylabel("Requests/s")
     ax.set_title("Goodput saturates before throughput does\n"
-                 "RTX 4090, Qwen2.5-7B BF16, vLLM")
+                 f"RTX 4090, Qwen2.5-7B BF16, vLLM — {shape} traffic")
     ax.legend(loc="upper left")
     _finish(ax, plt, path, "Measured on this machine.")
     return True
@@ -1125,10 +1152,19 @@ def cmd_plots(args: argparse.Namespace) -> str:
     made = []
     if plot_energy_vs_load(rows, os.path.join(PLOTS, "e1_energy_per_token_vs_load.png")):
         made.append("e1_energy_per_token_vs_load.png")
-    if plot_breakeven(rows, pricing, os.path.join(PLOTS, "e5_cost_per_1m_vs_load.png")):
-        made.append("e5_cost_per_1m_vs_load.png")
-    if plot_goodput(rows, os.path.join(PLOTS, "e1_goodput_vs_load.png")):
-        made.append("e1_goodput_vs_load.png")
+    shapes = sorted({shape_of(r) for r in rows if r["out_tok_throughput"]})
+    for shape in shapes:
+        slug = shape.replace("/", "_").replace(" ", "")
+        name = ("e5_cost_per_1m_vs_load.png" if len(shapes) == 1
+                else f"e5_cost_per_1m_vs_load__{slug}.png")
+        if plot_breakeven(rows, pricing, os.path.join(PLOTS, name), shape=shape):
+            made.append(name)
+    for shape in shapes:
+        slug = shape.replace("/", "_").replace(" ", "")
+        name = ("e1_goodput_vs_load.png" if len(shapes) == 1
+                else f"e1_goodput_vs_load__{slug}.png")
+        if plot_goodput(rows, os.path.join(PLOTS, name), shape=shape):
+            made.append(name)
     return "Wrote: " + (", ".join(made) if made else NOT_RUN)
 
 

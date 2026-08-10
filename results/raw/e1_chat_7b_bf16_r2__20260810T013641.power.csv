@@ -1,0 +1,121 @@
+timestamp,power_w,power_limit_w,clock_sm_mhz,clock_mem_mhz,temp_c,util_gpu_pct,util_mem_pct,mem_used_mib,pstate,throttle_sw_power_cap,throttle_hw_thermal,throttle_sw_thermal,throttle_hw_slowdown
+2026/08/10 01:36:42.336,42.95,450.00,345,5001,57,0,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:42.892,42.95,450.00,225,5001,56,0,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:43.446,40.40,450.00,225,5001,56,0,0,23904,P5,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:44.025,37.76,450.00,210,810,55,0,3,23904,P5,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:44.607,37.76,450.00,210,810,55,0,3,23904,P5,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:45.178,31.26,450.00,210,810,55,0,3,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:45.775,31.26,450.00,210,810,55,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:46.376,27.19,450.00,210,810,55,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:46.972,27.19,450.00,210,405,54,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:47.570,22.58,450.00,210,405,54,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:48.158,22.02,450.00,210,405,54,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:48.749,22.02,450.00,210,405,53,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:49.335,21.96,450.00,210,405,53,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:49.928,21.96,450.00,210,405,53,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:50.517,21.63,450.00,210,405,53,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:51.105,24.04,450.00,345,405,53,64,49,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:51.719,182.13,450.00,2475,10251,67,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:52.234,308.13,450.00,2640,10251,64,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:52.737,325.05,450.00,2670,10251,61,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:53.240,329.71,450.00,2670,10251,62,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:53.745,326.10,450.00,2670,10251,63,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:54.248,317.65,450.00,2670,10251,62,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:54.751,313.71,450.00,2670,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:55.254,310.66,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:55.757,305.55,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:56.262,324.25,450.00,2670,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:56.791,330.80,450.00,2670,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:57.294,318.48,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:57.797,317.09,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:58.302,326.52,450.00,2565,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:58.806,313.09,450.00,2655,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:59.310,312.11,450.00,2655,10251,62,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:36:59.813,335.30,450.00,2655,10251,64,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:00.317,340.01,450.00,2655,10251,63,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:00.826,318.01,450.00,2655,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:01.334,314.88,450.00,2475,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:01.837,312.18,450.00,2655,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:02.344,310.63,450.00,2625,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:02.847,306.75,450.00,2655,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:03.350,303.11,450.00,2655,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:03.853,323.22,450.00,2655,10251,64,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:04.358,329.74,450.00,2655,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:04.863,332.32,450.00,2655,10251,64,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:05.367,327.96,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:05.872,328.10,450.00,2655,10251,63,100,87,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:06.384,336.20,450.00,2655,10251,64,100,76,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:06.888,327.97,450.00,2655,10251,64,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:07.391,321.31,450.00,2655,10251,64,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:07.894,314.11,450.00,2655,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:08.400,320.18,450.00,2655,10251,64,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:08.904,338.74,450.00,2655,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:09.408,331.43,450.00,2655,10251,64,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:09.911,325.35,450.00,2655,10251,64,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:10.415,335.67,450.00,2655,10251,69,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:10.920,339.40,450.00,2655,10251,71,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:11.425,335.89,450.00,2475,10251,67,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:11.928,326.14,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:12.432,317.44,450.00,2655,10251,64,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:12.937,312.89,450.00,2655,10251,64,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:13.464,319.19,450.00,2655,10251,64,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:14.015,331.26,450.00,2655,10251,66,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:14.564,334.85,450.00,2475,10251,70,100,88,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:15.067,324.95,450.00,2655,10251,65,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:15.613,333.70,450.00,2655,10251,65,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:16.119,352.91,450.00,2490,10251,71,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:16.622,362.23,450.00,2655,10251,65,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:17.152,341.79,450.00,2640,10251,67,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:17.658,332.81,450.00,2655,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:18.161,310.58,450.00,2655,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:18.664,305.89,450.00,2655,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:19.168,313.47,450.00,2655,10251,66,89,85,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:19.672,338.91,450.00,2655,10251,66,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:20.177,353.00,450.00,2655,10251,66,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:20.681,346.50,450.00,2655,10251,73,100,84,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:21.184,332.96,450.00,2655,10251,66,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:21.688,312.21,450.00,2655,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:22.192,308.44,450.00,2655,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:22.697,297.14,450.00,2655,10251,65,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:23.251,177.83,450.00,2670,10251,60,0,0,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:23.757,85.81,450.00,2670,10251,59,0,0,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:24.261,84.30,450.00,2670,10251,59,0,0,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:24.765,73.08,450.00,705,10251,58,1,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:25.332,50.24,450.00,540,5001,57,1,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:25.899,41.57,450.00,450,5001,57,1,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:26.465,41.16,450.00,345,5001,56,1,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:27.040,41.10,450.00,225,5001,56,2,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:27.665,41.02,450.00,210,5001,56,2,0,23904,P3,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:28.252,36.94,450.00,210,810,55,1,3,23904,P5,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:28.831,32.00,450.00,210,810,55,4,3,23904,P5,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:29.411,31.13,450.00,210,810,55,3,3,23904,P5,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:29.992,27.75,450.00,210,810,55,0,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:30.600,22.93,450.00,210,405,54,3,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:31.212,21.83,450.00,210,405,54,1,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:31.815,21.97,450.00,210,405,54,1,5,23907,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:32.425,21.93,450.00,210,405,54,5,5,23907,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:33.036,21.69,450.00,210,405,53,1,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:33.643,21.72,450.00,210,405,53,2,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:34.257,21.88,450.00,210,405,53,1,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:34.854,21.93,450.00,210,405,53,1,5,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:35.456,26.42,450.00,210,405,53,59,44,23904,P8,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:36.085,161.61,450.00,2670,10251,61,100,95,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:36.590,291.42,450.00,2655,10251,62,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:37.116,325.95,450.00,2670,10251,61,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:37.662,329.96,450.00,2670,10251,62,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:38.165,330.04,450.00,2655,10251,62,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:38.670,323.23,450.00,2670,10251,62,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:39.174,312.44,450.00,2670,10251,62,99,92,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:39.678,308.87,450.00,2670,10251,62,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:40.181,301.10,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:40.684,313.45,450.00,2670,10251,63,100,100,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:41.225,330.28,450.00,2475,10251,69,100,95,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:41.730,317.94,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:42.285,317.80,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:42.793,329.51,450.00,2670,10251,62,100,93,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:43.296,315.17,450.00,2670,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:43.800,303.19,450.00,2670,10251,62,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:44.303,335.96,450.00,2460,10251,69,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:44.817,339.26,450.00,2655,10251,63,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:45.320,315.41,450.00,2655,10251,64,99,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:37:45.824,325.60,450.00,2655,10251,63,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
