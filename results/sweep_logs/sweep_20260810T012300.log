@@ -1,0 +1,78 @@
+sweep started 2026-08-10T01:23:00-07:00 with 16 points
+log: /mnt/d/2026 LYC Job Hunting/Watt-Bench/wattbench/results/sweep_logs/sweep_20260810T012300.log
+
+----- [1/16] configs/e1/chat/r0p5.yaml -----
+[run 01:23:00] === e1_chat_7b_bf16_r0p5 (E1) ===
+[run 01:23:03] starting vLLM: Qwen/Qwen2.5-7B-Instruct
+[run 01:23:03]   flags: --port 8000 --max-model-len 4096 --gpu-memory-utilization 0.9 --max-num-seqs 256 --dtype bfloat16 --no-enable-prefix-caching
+[run 01:23:30] server healthy after 27s
+[run 01:23:33] poller pid 17789 -> e1_chat_7b_bf16_r0p5__20260810T012300.power.csv
+[run 01:23:33] warmup: 32 prompts @ 0.5 req/s
+[run 01:24:51] measuring: 200 prompts @ 0.5 req/s
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Namespace(subparser='bench', bench_type='serve', dispatch_function=<function BenchmarkServingSubcommand.cmd at 0x79ed613772e0>, trust_remote_code=False, seed=0, num_prompts=200, dataset_name='random', no_stream=False, dataset_path=None, no_oversample=False, skip_chat_template=False, enable_multimodal_chat=False, disable_shuffle=False, custom_output_len=256, custom_ensure_client_side_data=False, spec_bench_output_len=256, spec_bench_category=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, timed_trace_chunk_hash_size=16, timed_trace_sec_multiplier=1, timed_trace_label_timestamp='timestamp', timed_trace_label_input_length='input_length', timed_trace_label_output_length='output_length', timed_trace_label_hash_ids='hash_ids', blazedit_min_distance=0.0, blazedit_max_distance=1.0, asr_max_audio_len_sec=inf, asr_min_audio_len_sec=0.0, random_input_len=512, random_output_len=128, random_range_ratio='0.0', random_prefix_len=0, random_batch_size=1, no_reranker=False, random_mm_base_items_per_request=1, random_mm_num_mm_items_range_ratio=0.0, random_mm_limit_mm_per_prompt={'image': 255, 'video': 1}, random_mm_bucket_config={(256, 256, 1): 0.5, (720, 1280, 1): 0.5, (720, 1280, 16): 0.0}, hf_subset=None, hf_split=None, hf_name=None, hf_output_len=None, bfcl_categories=None, prefix_repetition_prefix_len=256, prefix_repetition_suffix_len=256, prefix_repetition_num_prefixes=10, prefix_repetition_output_len=128, speed_bench_dataset_subset='qualitative', speed_bench_output_len=4096, speed_bench_category=None, label=None, backend='vllm', base_url=None, host='127.0.0.1', port=8000, endpoint='/v1/completions', header=None, max_concurrency=None, model='Qwen/Qwen2.5-7B-Instruct', input_len=None, output_len=None, tokenizer=None, tokenizer_mode='auto', use_beam_search=False, logprobs=None, request_rate=0.5, burstiness=1.0, disable_tqdm=True, num_warmups=0, profile=False, save_result=True, save_detailed=True, append_result=False, metadata=None, result_dir='/tmp/wattbench', result_filename='e1_chat_7b_bf16_r0p5.bench.json', ignore_eos=True, self_timed=None, percentile_metrics='ttft,tpot,itl,e2el', metric_percentiles='50,90,95,99', goodput=['ttft:1000', 'e2el:10000'], request_id_prefix='bench-992a09dc-', top_p=None, top_k=None, min_p=None, temperature=0.0, frequency_penalty=None, presence_penalty=None, repetition_penalty=None, served_model_name=None, lora_modules=None, lora_assignment='random', ramp_up_strategy=None, ramp_up_start_rps=None, ramp_up_end_rps=None, ready_check_timeout_sec=0, chat_template_kwargs=None, extra_body=None, skip_tokenizer_init=False, insecure=False, plot_timeline=False, timeline_itl_thresholds='25,50', plot_dataset_stats=False)
+INFO 08-10 01:24:56 [utils.py:90] Sampling input_len from [512, 512] and output_len from [128, 128]
+Starting initial single prompt test run...
+Skipping endpoint ready check.
+Starting main benchmark run...
+Traffic request rate: 0.5
+Burstiness factor: 1.0 (Poisson process)
+Maximum request concurrency: None
+tip: install termplotlib and gnuplot to plot the metrics
+============ Serving Benchmark Result ============
+Successful requests:                     200       
+Failed requests:                         0         
+Request rate configured (RPS):           0.50      
+Benchmark duration (s):                  402.12    
+Total input tokens:                      102400    
+Total generated tokens:                  25600     
+Request throughput (req/s):              0.50      
+Request goodput (req/s):                 0.50      
+Output token throughput (tok/s):         63.66     
+Peak output token throughput (tok/s):    276.00    
+Peak concurrent requests:                7.00      
+Total token throughput (tok/s):          318.31    
+---------------Time to First Token----------------
+Mean TTFT (ms):                          103.84    
+Median TTFT (ms):                        81.69     
+P50 TTFT (ms):                           81.69     
+P90 TTFT (ms):                           230.82    
+P95 TTFT (ms):                           290.96    
+P99 TTFT (ms):                           366.91    
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          16.42     
+Median TPOT (ms):                        16.37     
+P50 TPOT (ms):                           16.37     
+P90 TPOT (ms):                           16.91     
+P95 TPOT (ms):                           17.18     
+P99 TPOT (ms):                           17.48     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           16.42     
+Median ITL (ms):                         16.17     
+P50 ITL (ms):                            16.17     
+P90 ITL (ms):                            16.42     
+P95 ITL (ms):                            16.52     
+P99 ITL (ms):                            17.58     
+----------------End-to-end Latency----------------
+Mean E2EL (ms):                          2189.20   
+Median E2EL (ms):                        2177.96   
+P50 E2EL (ms):                           2177.96   
+P90 E2EL (ms):                           2301.97   
+P95 E2EL (ms):                           2336.73   
+P99 E2EL (ms):                           2482.04   
+==================================================
+[power_log] wrote 943 samples to /mnt/d/2026 LYC Job Hunting/Watt-Bench/wattbench/results/raw/e1_chat_7b_bf16_r0p5__20260810T012300.power.csv
+[kv_log] wrote 244 samples (0 scrape errors) to /mnt/d/2026 LYC Job Hunting/Watt-Bench/wattbench/results/raw/e1_chat_7b_bf16_r0p5__20260810T012300.kv.csv
+[run 01:31:40] idle baseline: 19.045 W (series 'E1', measured 2026-08-10T01:23:00.564619-07:00)
+[harness] wrote /mnt/d/2026 LYC Job Hunting/Watt-Bench/wattbench/results/raw/e1_chat_7b_bf16_r0p5__20260810T012300.json
+[run 01:31:41] done: e1_chat_7b_bf16_r0p5__20260810T012300.json
+
+----- [2/16] configs/e1/chat/r1.yaml -----
+[run 01:31:41] === e1_chat_7b_bf16_r1 (E1) ===
+[run 01:31:41] reusing running server (fingerprint 4eb07bd274ae3fb6)
+[run 01:31:44] poller pid 18506 -> e1_chat_7b_bf16_r1__20260810T013141.power.csv
+[run 01:31:44] warmup: 32 prompts @ 1 req/s
+[run 01:32:29] measuring: 240 prompts @ 1 req/s
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Namespace(subparser='bench', bench_type='serve', dispatch_function=<function BenchmarkServingSubcommand.cmd at 0x7aac4034f2e0>, trust_remote_code=False, seed=0, num_prompts=240, dataset_name='random', no_stream=False, dataset_path=None, no_oversample=False, skip_chat_template=False, enable_multimodal_chat=False, disable_shuffle=False, custom_output_len=256, custom_ensure_client_side_data=False, spec_bench_output_len=256, spec_bench_category=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, timed_trace_chunk_hash_size=16, timed_trace_sec_multiplier=1, timed_trace_label_timestamp='timestamp', timed_trace_label_input_length='input_length', timed_trace_label_output_length='output_length', timed_trace_label_hash_ids='hash_ids', blazedit_min_distance=0.0, blazedit_max_distance=1.0, asr_max_audio_len_sec=inf, asr_min_audio_len_sec=0.0, random_input_len=512, random_output_len=128, random_range_ratio='0.0', random_prefix_len=0, random_batch_size=1, no_reranker=False, random_mm_base_items_per_request=1, random_mm_num_mm_items_range_ratio=0.0, random_mm_limit_mm_per_prompt={'image': 255, 'video': 1}, random_mm_bucket_config={(256, 256, 1): 0.5, (720, 1280, 1): 0.5, (720, 1280, 16): 0.0}, hf_subset=None, hf_split=None, hf_name=None, hf_output_len=None, bfcl_categories=None, prefix_repetition_prefix_len=256, prefix_repetition_suffix_len=256, prefix_repetition_num_prefixes=10, prefix_repetition_output_len=128, speed_bench_dataset_subset='qualitative', speed_bench_output_len=4096, speed_bench_category=None, label=None, backend='vllm', base_url=None, host='127.0.0.1', port=8000, endpoint='/v1/completions', header=None, max_concurrency=None, model='Qwen/Qwen2.5-7B-Instruct', input_len=None, output_len=None, tokenizer=None, tokenizer_mode='auto', use_beam_search=False, logprobs=None, request_rate=1.0, burstiness=1.0, disable_tqdm=True, num_warmups=0, profile=False, save_result=True, save_detailed=True, append_result=False, metadata=None, result_dir='/tmp/wattbench', result_filename='e1_chat_7b_bf16_r1.bench.json', ignore_eos=True, self_timed=None, percentile_metrics='ttft,tpot,itl,e2el', metric_percentiles='50,90,95,99', goodput=['ttft:1000', 'e2el:10000'], request_id_prefix='bench-3d7e9dda-', top_p=None, top_k=None, min_p=None, temperature=0.0, frequency_penalty=None, presence_penalty=None, repetition_penalty=None, served_model_name=None, lora_modules=None, lora_assignment='random', ramp_up_strategy=None, ramp_up_start_rps=None, ramp_up_end_rps=None, ready_check_timeout_sec=0, chat_template_kwargs=None, extra_body=None, skip_tokenizer_init=False, insecure=False, plot_timeline=False, timeline_itl_thresholds='25,50', plot_dataset_stats=False)
+INFO 08-10 01:32:35 [utils.py:90] Sampling input_len from [512, 512] and output_len from [128, 128]

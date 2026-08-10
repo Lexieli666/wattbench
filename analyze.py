@@ -154,6 +154,7 @@ def row_view(r: dict) -> dict:
     m = r.get("metrics") or {}
     e = r.get("energy") or {}
     gp = r.get("goodput") or {}
+    sm = r.get("server_metrics") or {}
     cfg = r.get("config") or {}
     load = cfg.get("load") or {}
     server = cfg.get("server") or {}
@@ -192,6 +193,16 @@ def row_view(r: dict) -> dict:
         "clock_p50_mhz": g(e, "clock_sm_mhz", "p50"),
         "flags": e.get("flags") or [],
         "sanity": g(r, "sanity", "overall"),
+        # Server-side view. Saturation is a growing queue, which only the
+        # server can report; the load generator cannot see it.
+        "kv_util_mean": g(sm, "kv_cache_usage_perc", "mean"),
+        "kv_util_max": g(sm, "kv_cache_usage_perc", "max"),
+        "batch_mean": g(sm, "num_requests_running", "mean"),
+        "batch_max": g(sm, "num_requests_running", "max"),
+        "queue_mean": g(sm, "num_requests_waiting", "mean"),
+        "queue_max": g(sm, "num_requests_waiting", "max"),
+        "queue_growing": g(sm, "queue_growth", "growing"),
+        "preemptions": sm.get("num_preemptions_total_delta"),
     }
 
 
@@ -406,11 +417,15 @@ def cmd_sweep(args: argparse.Namespace) -> str:
                 fmt(r["out_tok_throughput"], ".4g"),
                 fmt(r["ttft_p50_ms"], ".4g"),
                 fmt(r["ttft_p95_ms"], ".4g"),
-                fmt(r["itl_p50_ms"], ".3g"),
                 fmt(r["e2e_p95_ms"], ".4g"),
                 fmt(r["mean_power_w"], ".4g"),
                 fmt(r["j_per_out_tok"], ".3g"),
                 fmt(r["j_per_out_tok_incr"], ".3g"),
+                f"{r['kv_util_mean'] * 100:.1f}%" if r["kv_util_mean"] is not None else NOT_RUN,
+                fmt(r["batch_mean"], ".3g"),
+                fmt(r["queue_max"], ".4g"),
+                "yes" if r["queue_growing"] else ("no" if r["queue_growing"] is not None else "-"),
+                fmt(r["preemptions"], ".4g"),
             ]
             for r in srows
         ]
@@ -418,8 +433,9 @@ def cmd_sweep(args: argparse.Namespace) -> str:
             f"### E1 — {shape}\n\n"
             + md_table(
                 ["offered req/s", "achieved req/s", "goodput req/s", "out tok/s",
-                 "TTFT p50 ms", "TTFT p95 ms", "ITL p50 ms", "E2E p95 ms",
-                 "mean W", "J/tok raw", "J/tok net"],
+                 "TTFT p50 ms", "TTFT p95 ms", "E2E p95 ms",
+                 "mean W", "J/tok raw", "J/tok net",
+                 "KV util", "batch mean", "queue max", "queue growing", "preempt"],
                 body,
             )
         )
@@ -434,11 +450,17 @@ def cmd_sweep(args: argparse.Namespace) -> str:
 
 
 def max_sustainable_rate(srows: list[dict]) -> float | None:
-    """Highest offered rate the server actually keeps up with under the SLO.
+    """Highest offered rate the server actually sustains under the SLO.
 
-    "Keeps up with" means achieved throughput is within 5% of offered load --
-    beyond that the queue is growing -- and at least half of requests met both
-    SLO clauses.
+    Three conditions, all measured rather than inferred:
+      - achieved throughput within 5% of offered load (it is keeping up),
+      - the server's own request queue is not growing across the window
+        (plan §4's definition of saturation), and
+      - at least half of requests met both SLO clauses.
+
+    The queue condition is the load-bearing one. Throughput can track offered
+    load while latency quietly degrades, and a queue that grows across the
+    window is the unambiguous signal that the point is past saturation.
     """
     best = None
     for r in srows:
@@ -450,7 +472,10 @@ def max_sustainable_rate(srows: list[dict]) -> float | None:
         att = r["slo_attainment"]
         if achieved is None:
             continue
-        if achieved >= 0.95 * rate and (att is None or att >= 0.5):
+        keeping_up = achieved >= 0.95 * rate
+        queue_ok = not r.get("queue_growing")     # None (uncollected) counts as ok
+        slo_ok = att is None or att >= 0.5
+        if keeping_up and queue_ok and slo_ok:
             best = rate if best is None else max(best, rate)
     return best
 
