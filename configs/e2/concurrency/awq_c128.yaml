@@ -1,0 +1,24 @@
+# Maximum concurrency before preemption (plan §4 E2). Requests are issued as
+# fast as the concurrency limit allows (rate = inf), so the server is held at
+# exactly 128 in flight and the only question is whether its KV cache can hold
+# them. vLLM preempts rather than OOMs when the cache is exhausted, so
+# vllm:num_preemptions_total is the measurement -- recorded for every point by
+# kv_log.py.
+#
+# max_num_seqs is raised to 512 so the scheduler, not the seq-count cap, is what
+# limits concurrency. That changes the server fingerprint, so these points run
+# on their own server and are not comparable with the E1/E2 rate sweeps.
+extends: ../../_base_7b_awq.yaml
+experiment: E2-concurrency
+point_id: e2_conc_awq_c128
+description: E2 concurrency ladder, awq arm, 128 concurrent requests, chat shape
+
+server:
+  max_num_seqs: 512
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: inf
+  max_concurrency: 128
+  num_prompts: 1024
