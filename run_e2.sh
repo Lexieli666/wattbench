@@ -55,6 +55,19 @@ run_arm awq Qwen/Qwen2.5-7B-Instruct-AWQ \
 run_arm gptq Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4 \
   "$REPO/configs/e2/gptq/r8.yaml"
 
+# Concurrency ladder: how many requests each format can hold in flight before
+# vLLM starts preempting. These raise max_num_seqs, so they run on their own
+# server and are not comparable with the rate sweeps above.
+echo
+echo "=============================================================="
+echo "[e2] concurrency ladder (preemption onset)"
+echo "=============================================================="
+for cfg in "$REPO"/configs/e2/concurrency/bf16_c*.yaml \
+           "$REPO"/configs/e2/concurrency/awq_c*.yaml; do
+  echo "[e2] --- $cfg"
+  bash "$REPO/run.sh" --force "$cfg" || echo "[e2] !! point failed: $cfg (kept as a record)"
+done
+
 echo
 echo "[e2] longest servable context per format (each attempt costs a model load)"
 bash "$REPO/probe_limits.sh" context Qwen/Qwen2.5-7B-Instruct bf16 || true
