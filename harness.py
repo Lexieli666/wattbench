@@ -452,6 +452,7 @@ def assemble(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
     bench = _load_json(args.bench_json)
     power = _load_json(args.power_json)
+    kv = _load_json(args.kv_json)
     prov = _load_json(args.provenance) or provenance()
 
     if bench is None:
@@ -522,11 +523,16 @@ def assemble(args: argparse.Namespace) -> int:
         "provenance": prov,
         "metrics": bench,
         "metrics_arrays_dropped": dropped_arrays,
+        # Server-side view: KV-cache utilisation and queue depth over the same
+        # measurement window. Saturation is a growing queue, and that is only
+        # visible from the server, not from the load generator.
+        "server_metrics": kv or {"available": False, "reason": "not collected"},
         "goodput": good,
         "energy": energy,
         "artifacts": {
             "bench_json": os.path.basename(args.bench_json) if args.bench_json else None,
             "power_csv": os.path.basename(args.power_csv) if args.power_csv else None,
+            "kv_csv": os.path.basename(args.kv_csv) if args.kv_csv else None,
             "power_json": os.path.basename(args.power_json) if args.power_json else None,
             "server_log": os.path.basename(args.server_log) if args.server_log else None,
         },
@@ -686,6 +692,8 @@ def main() -> int:
     a.add_argument("--bench-json", required=True)
     a.add_argument("--power-json")
     a.add_argument("--power-csv")
+    a.add_argument("--kv-json")
+    a.add_argument("--kv-csv")
     a.add_argument("--provenance")
     a.add_argument("--server-log")
     a.add_argument("--out", required=True)
