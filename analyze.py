@@ -867,12 +867,16 @@ def cmd_economics(args: argparse.Namespace) -> str:
                 verdict = "never — API is below the card's electricity cost"
                 vstr = "-"
             else:
-                vstr = f"{v / 1e6:,.1f}M tok/day"
+                vstr = (f"{v / 1e6:,.2f}M tok/day" if v >= 1e6
+                        else f"{v / 1e3:,.0f}k tok/day")
+                pct = 100 * v / daily_capacity
                 if v > daily_capacity:
-                    verdict = (f"unreachable — exceeds this card's "
-                               f"{daily_capacity / 1e6:,.0f}M tok/day ceiling")
+                    verdict = (f"unreachable — {pct:.0f}% of this card's "
+                               f"{daily_capacity / 1e6:,.2f}M tok/day ceiling")
+                elif pct < 1:
+                    verdict = "<1% of the card's daily ceiling"
                 else:
-                    verdict = f"{100 * v / daily_capacity:.0f}% of the card's daily ceiling"
+                    verdict = f"{pct:.0f}% of the card's daily ceiling"
             be_rows.append([
                 f"{api['provider']} {api['model']}",
                 "yes" if api.get("weight_class_comparable") else "**no**",
