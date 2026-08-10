@@ -1,0 +1,19 @@
+# Not part of the E0 variance set -- deliberately tagged E0-greedy so it does
+# not enter that CV.
+#
+# vLLM 0.26's bench stopped forcing greedy decoding, so the three E0 repeats ran
+# at the server's own default sampling (a per-checkpoint property). Every later
+# experiment pins temperature 0 for cross-model uniformity. This point measures
+# whether that pin changes anything, instead of asserting that it cannot: it is
+# the same configuration as ref_a/b/c in every other respect, so if it lands
+# inside E0's confidence band the change is immaterial and E0 remains the
+# variance bar for the project.
+extends: ../_base_7b_bf16.yaml
+experiment: E0-greedy
+point_id: e0_ref_7b_bf16_chat_r4_greedy
+description: E0 reference configuration with temperature pinned to 0
+
+load:
+  request_rate: 4.0
+  num_prompts: 800
+  temperature: 0.0
