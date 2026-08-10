@@ -187,11 +187,39 @@ start_server() {
   log "server healthy after ${waited}s"
 }
 
+# A server is only safe to reuse if it is actually idle. A previous run that
+# was starved, aborted or killed can leave requests in flight, and vLLM will
+# happily keep decoding them underneath the next measurement -- which shows up
+# as a larger batch, roughly halved per-token speed and much lower power, with
+# no error anywhere. Observed for real: a reused server measured 33.25ms ITL at
+# 192W where a fresh one measured 16.90ms at 312W for the identical config.
+server_quiescent() {
+  local running waiting
+  running="$(curl -sf -m 5 "http://127.0.0.1:${WB_PORT}/metrics" 2>/dev/null \
+    | awk '/^vllm:num_requests_running/ {print $2; exit}')"
+  waiting="$(curl -sf -m 5 "http://127.0.0.1:${WB_PORT}/metrics" 2>/dev/null \
+    | awk '/^vllm:num_requests_waiting[{ ]/ {print $2; exit}')"
+  [[ -z "$running" || -z "$waiting" ]] && return 1
+  awk -v r="$running" -v w="$waiting" 'BEGIN{exit !(r+0==0 && w+0==0)}'
+}
+
 ensure_server() {
   local cur_fp=""
   [[ -f "$FP_FILE" ]] && cur_fp="$(cat "$FP_FILE")"
   if [[ "$cur_fp" == "$WB_SERVER_FP" ]] && server_healthy; then
-    log "reusing running server (fingerprint $WB_SERVER_FP)"
+    local waited=0
+    until server_quiescent; do
+      if (( waited >= 60 )); then
+        log "server has outstanding work after ${waited}s; restarting it rather"
+        log "than measuring on top of another run's leftovers"
+        stop_server
+        start_server
+        return $?
+      fi
+      sleep 5; waited=$((waited + 5))
+    done
+    [[ $waited -gt 0 ]] && log "server drained after ${waited}s"
+    log "reusing running server (fingerprint $WB_SERVER_FP, quiescent)"
     return 0
   fi
   stop_server
