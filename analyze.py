@@ -280,27 +280,99 @@ def cmd_variance(args: argparse.Namespace) -> str:
               f"Runs: {', '.join(r['file'] for r in rows)}\n\n")
     table = md_table(["Metric", "mean", "min", "max", "CV"], body)
 
+    return header + table + variance_verdict(rows)
+
+
+def variance_verdict(rows: list[dict]) -> str:
+    """Turn the per-metric CVs into resolution limits, with the caveats that apply.
+
+    Throughput is deliberately NOT used as the headline. Below saturation, with
+    a fixed seed, every repeat replays an identical Poisson arrival schedule and
+    the server keeps up, so the run's duration -- and therefore its throughput --
+    is set by the generator rather than by the card. Its CV then measures the
+    workload generator's determinism, not serving stability, and quoting it as a
+    variance bar would overstate the precision of every later comparison.
+    """
+    out = ["\n\n### What this bounds\n"]
+
     tput_cv = cv([r["out_tok_throughput"] for r in rows])
-    verdict = "\n\n"
-    if tput_cv is None:
-        verdict += "Verdict: cannot compute — throughput missing from one or more runs."
-    elif tput_cv < 0.02:
-        verdict += (f"**Verdict: tight.** Output-throughput CV is {tput_cv * 100:.2f}%, "
-                    f"so differences below roughly {tput_cv * 200:.1f}% between later "
-                    f"points are inside run-to-run noise and are not claimed as real.")
-    elif tput_cv < 0.05:
-        verdict += (f"**Verdict: acceptable.** Output-throughput CV is {tput_cv * 100:.2f}%. "
-                    f"Differences smaller than ~{tput_cv * 200:.1f}% are not resolvable.")
+    energy_cv = cv([r["j_per_out_tok"] for r in rows])
+    power_cv = cv([r["mean_power_w"] for r in rows])
+    tail_cv = cv([r["ttft_p95_ms"] for r in rows])
+    e2e_cv = cv([r["e2e_p95_ms"] for r in rows])
+
+    # Is throughput pinned by the arrival schedule rather than by the server?
+    pinned = []
+    for r in rows:
+        rate, achieved = r["request_rate"], r["req_throughput"]
+        if rate in (None, "inf") or achieved is None:
+            continue
+        pinned.append(achieved >= 0.95 * float(rate))
+    schedule_pinned = bool(pinned) and all(pinned)
+
+    if tput_cv is not None:
+        if schedule_pinned:
+            out.append(
+                f"- **Throughput CV is {tput_cv * 100:.2f}%, and that number is not a "
+                f"variance bar.** Every repeat replays the same seeded Poisson "
+                f"schedule, and the server kept up with it (achieved ≥ 95% of "
+                f"offered), so the run ends when the last request was *scheduled*, "
+                f"not when the card finished working. Throughput is therefore "
+                f"pinned by the load generator here. It becomes a real measure of "
+                f"the card only at saturation, where the queue grows and duration "
+                f"is set by service rate.\n"
+            )
+        else:
+            out.append(
+                f"- **Throughput CV {tput_cv * 100:.2f}%** — meaningful here, since "
+                f"at least one repeat did not keep up with offered load, so "
+                f"duration reflects service rate.\n"
+            )
+
+    limits = []
+    if energy_cv is not None:
+        limits.append(("Energy per token", energy_cv))
+    if power_cv is not None:
+        limits.append(("Mean power", power_cv))
+    if tail_cv is not None:
+        limits.append(("TTFT p95", tail_cv))
+    if e2e_cv is not None:
+        limits.append(("E2E p95", e2e_cv))
+
+    for name, c in limits:
+        out.append(f"- **{name}: CV {c * 100:.2f}%** — differences smaller than "
+                   f"~{c * 200:.1f}% between later points are inside noise.\n")
+
+    if not limits:
+        return "".join(out) + "\nNo metric had enough repeats to bound.\n"
+
+    worst_name, worst_cv = max(limits, key=lambda x: x[1])
+    binding = worst_cv * 200
+    if worst_cv < 0.02:
+        grade = "**Verdict: tight.**"
+    elif worst_cv < 0.05:
+        grade = "**Verdict: acceptable.**"
     else:
-        verdict += (f"**Verdict: poor — investigate before trusting later numbers.** "
-                    f"Output-throughput CV is {tput_cv * 100:.2f}%. Check thermal "
-                    f"throttling, background GPU consumers, and power-readout stability.")
+        grade = ("**Verdict: poor — diagnose before trusting later numbers.** "
+                 "Check thermal throttling, background GPU consumers, and power "
+                 "readout stability.")
+
+    out.append(
+        f"\n{grade} The binding constraint is {worst_name} at "
+        f"{worst_cv * 100:.2f}% CV, so **this project does not claim any "
+        f"difference smaller than about {binding:.1f}%** on that metric. "
+        f"Energy comparisons are resolvable to ~{(energy_cv or 0) * 200:.1f}%.\n"
+    )
 
     thermal = [r for r in rows if r["flags"]]
     if thermal:
-        verdict += ("\n\nFlagged runs: "
-                    + "; ".join(f"{r['file']} ({','.join(r['flags'])})" for r in thermal))
-    return header + table + verdict
+        out.append("\nFlagged runs: "
+                   + "; ".join(f"{r['file']} ({','.join(r['flags'])})" for r in thermal)
+                   + "\n")
+    else:
+        out.append("\nNo run tripped a thermal, clock-sag, sample-gap or "
+                   "power-limit flag.\n")
+    return "".join(out)
 
 
 # --------------------------------------------------------------------------
