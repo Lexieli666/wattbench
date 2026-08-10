@@ -292,6 +292,31 @@ Two details matter:
   significant figures — the two are computed from different code paths, which is
   what makes the agreement worth stating.
 
+### A failed request is not a fast request
+
+The first version of the goodput calculation counted failures as SLO-meeting.
+vLLM records a failed request as `ttft = 0.0`, `output_len = 0` and a non-empty
+error string — and `0.0 <= 1.0 s` passes the TTFT SLO, `0.0 <= 10 s` passes the
+end-to-end SLO. A connection failure therefore scored as the best possible
+response.
+
+It surfaced because goodput came out *above* measured throughput at one E1
+point (7.9098 vs 7.9049 req/s), which the sanity checks flag as impossible.
+One request in 1600 had died with a transport traceback.
+
+The fix excludes a request from the numerator if it carries an error, produced
+zero output tokens, or reported a non-positive TTFT — while keeping it in the
+denominator, because a server that sheds load is not thereby faster. Corrected
+goodput now matches vLLM's own independently computed `request_goodput` to
+seven significant figures at that point.
+
+Points measured before the fix keep their original stored value in
+`results/raw/`; `analyze.py` recomputes goodput from the per-request arrays,
+which are committed, so every table and plot uses the corrected figure and the
+raw files stay an honest record of what the harness computed at the time. A
+recomputed row carries `superseded_stored_value` so the difference is visible
+rather than silent.
+
 **Max sustainable rate** is the highest offered rate at which achieved
 throughput is still within 5 % of offered load (beyond that the queue is
 growing) *and* at least half of requests met both SLO clauses.
