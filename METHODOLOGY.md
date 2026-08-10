@@ -65,6 +65,40 @@ the weather. Every measured point follows the same protocol:
    run-to-run coefficient of variation *before* trusting any other number.
    That is E0, and it sets the resolution limit for the entire project: any
    later difference smaller than the CV is noise and is not claimed as a result.
+9. **Pin the sampling temperature.** vLLM 0.26's benchmark client no longer
+   forces greedy decoding, so an unset temperature means each checkpoint's own
+   `generation_config.json` default applies — which would silently vary sampling
+   across the E3 model ladder.
+
+### Why the throughput CV is not the variance bar
+
+E0's output-throughput CV is **0.01%**, and that number is not used as a
+resolution limit, because it does not measure the card.
+
+Below saturation, with a fixed seed, every repeat replays an identical Poisson
+arrival schedule and the server keeps up with it. The run therefore ends when
+the last request was *scheduled*, not when the card finished working: the three
+E0 durations were 202.2316 s, 202.2287 s and 202.2019 s, and throughput is just
+`num_prompts / duration`. That CV measures the load generator's determinism.
+
+Throughput only becomes a real measurement of the hardware **at saturation**,
+where the queue grows and duration is set by service rate rather than by the
+schedule — which is exactly the regime E1's high-rate points probe. The
+resolution limits this project actually uses come from metrics that do reflect
+the card: energy per token (CV 0.20%), mean power (0.27%), E2E p95 (0.63%) and
+TTFT p95 (1.31%, the binding constraint). `analyze.py` detects the
+schedule-pinned condition and says so instead of quoting the flattering figure.
+
+### The temperature pin was measured, not assumed
+
+`ignore_eos` fixes the token count, so pinning temperature "should not" change
+throughput or energy. It does, slightly: a control run of the E0 configuration
+with `temperature: 0` drew **+0.98% mean power** and ran **−1.64% on ITL p50**
+versus the server default — small, but 3–6 CVs outside E0's band.
+
+So the pin is not free, and E0 was re-run under the pin so that the variance bar
+is measured in the same configuration as the experiments it bounds. The unpinned
+runs remain committed as superseded records rather than being deleted.
 
 **Other GPU consumers are closed before measured runs.** The desktop's residual
 draw is part of the measured idle baseline and is subtracted; a browser
