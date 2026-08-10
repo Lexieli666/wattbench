@@ -479,3 +479,20 @@ timestamp,power_w,power_limit_w,clock_sm_mhz,clock_mem_mhz,temp_c,util_gpu_pct,u
 2026/08/10 01:40:47.674,318.45,450.00,2655,10251,67,100,100,23907,P2,Not Active,Not Active,Not Active,Not Active
 2026/08/10 01:40:48.178,309.93,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
 2026/08/10 01:40:48.681,311.19,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:49.184,313.13,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:49.689,313.35,450.00,2655,10251,73,100,94,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:50.194,310.90,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:50.697,318.19,450.00,2655,10251,68,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:51.203,330.61,450.00,2655,10251,69,100,94,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:51.707,344.54,450.00,2655,10251,67,100,91,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:52.215,345.63,450.00,2655,10251,67,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:52.718,326.94,450.00,2655,10251,67,100,98,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:53.255,328.66,450.00,2655,10251,67,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:53.758,321.05,450.00,2655,10251,67,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:54.261,306.09,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:54.765,329.93,450.00,2550,10251,72,100,93,23904,P2,Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:55.284,349.46,450.00,2655,10251,67,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:55.790,336.47,450.00,2655,10251,67,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:56.293,312.00,450.00,2655,10251,66,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:56.797,311.07,450.00,2655,10251,67,100,100,23904,P2,Not Active,Not Active,Not Active,Not Active
+2026/08/10 01:40:57.300,251.05,450.00,2655,10251,63,0,0,23904,P2,Not Active,Not Active,Not Active,Not Active
