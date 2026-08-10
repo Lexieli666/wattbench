@@ -954,6 +954,9 @@ def plot_energy_vs_load(rows: list[dict], path: str) -> bool:
                     xytext=(8, 0), va="center", fontsize=9, color=INK_2)
 
     ax.set_xscale("log")
+    # Room on the right so the direct labels are not clipped by the axes.
+    xmax = max(max(float(p["request_rate"]) for p in pts) for _, pts in series)
+    ax.set_xlim(right=xmax * 1.9)
     ax.set_xlabel("Offered load (requests/s, Poisson arrivals)")
     ax.set_ylabel("Energy per output token (J)")
     ax.set_title("Batching collapses energy per token\nRTX 4090, Qwen2.5-7B BF16, vLLM")
