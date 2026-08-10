@@ -355,14 +355,24 @@ def _load_json(path: str | None) -> dict | None:
 def compute_goodput(bench: dict, slo_ttft_s: float, slo_e2e_s: float) -> dict:
     """Per-request SLO attainment from vllm bench serve's per-request arrays.
 
-    Goodput here means: completed requests that met BOTH the TTFT and the
-    end-to-end latency SLO, expressed as requests/s over the benchmark
-    duration. Requests the server failed outright are counted as misses, not
-    dropped from the denominator -- a server that sheds load is not thereby
-    faster.
+    Goodput here means: requests that actually completed AND met BOTH the TTFT
+    and the end-to-end latency SLO, expressed as requests/s over the benchmark
+    duration.
+
+    A failed request must be excluded from the numerator explicitly. vLLM
+    records one as ttft = 0.0, output_len = 0 and a non-empty error string --
+    and 0.0 passes every latency threshold, so a naive comparison counts a
+    connection failure as the best possible response. Observed for real: one
+    request in an E1 point failed with a transport traceback and pushed goodput
+    above measured throughput, which is what surfaced the bug.
+
+    Failures stay in the denominator: a server that drops requests is not
+    thereby faster.
     """
     ttfts = bench.get("ttfts") or []
     e2es = bench.get("e2els") or bench.get("e2es") or []
+    errors = bench.get("errors") or []
+    out_lens = bench.get("output_lens") or []
     dur = bench.get("duration")
     completed = bench.get("completed")
     requested = bench.get("num_prompts") or completed
@@ -374,11 +384,19 @@ def compute_goodput(bench: dict, slo_ttft_s: float, slo_e2e_s: float) -> dict:
         }
 
     n = min(len(ttfts), len(e2es))
-    met_both = sum(
-        1 for i in range(n) if ttfts[i] <= slo_ttft_s and e2es[i] <= slo_e2e_s
-    )
-    met_ttft = sum(1 for t in ttfts[:n] if t <= slo_ttft_s)
-    met_e2e = sum(1 for e in e2es[:n] if e <= slo_e2e_s)
+
+    def failed(i: int) -> bool:
+        if i < len(errors) and errors[i]:
+            return True
+        if i < len(out_lens) and not out_lens[i]:
+            return True
+        return ttfts[i] <= 0.0
+
+    n_failed = sum(1 for i in range(n) if failed(i))
+    ok = [i for i in range(n) if not failed(i)]
+    met_both = sum(1 for i in ok if ttfts[i] <= slo_ttft_s and e2es[i] <= slo_e2e_s)
+    met_ttft = sum(1 for i in ok if ttfts[i] <= slo_ttft_s)
+    met_e2e = sum(1 for i in ok if e2es[i] <= slo_e2e_s)
 
     denom = requested or n
     return {
@@ -388,64 +406,15 @@ def compute_goodput(bench: dict, slo_ttft_s: float, slo_e2e_s: float) -> dict:
         "n_evaluated": n,
         "n_requested": requested,
         "n_completed": completed,
+        "n_failed": n_failed,
         "n_met_both": met_both,
         "n_met_ttft": met_ttft,
         "n_met_e2e": met_e2e,
         "goodput_req_per_s": round(met_both / dur, 6),
         "slo_attainment_frac": round(met_both / denom, 4) if denom else None,
-        "note": "denominator is requests issued, so failed requests count as SLO misses",
+        "note": ("failed requests are excluded from the numerator and kept in the "
+                 "denominator: a server that sheds load is not thereby faster"),
     }
-
-
-def derive_e2els(bench: dict) -> dict:
-    """Reconstruct per-request end-to-end latency, in seconds.
-
-    `vllm bench serve --save-detailed` emits `ttfts` and `itls` but no
-    per-request end-to-end array, and end-to-end is half of the goodput SLO.
-    For a streamed request the total is exactly the time to first token plus
-    every inter-token gap after it, so the array is recoverable -- but only
-    before `itls` is dropped from the committed artifact, hence doing it here.
-    """
-    if bench.get("e2els") or not bench.get("ttfts") or not bench.get("itls"):
-        return bench
-    ttfts, itls = bench["ttfts"], bench["itls"]
-    if len(ttfts) != len(itls):
-        return bench
-    # Both arrays are in SECONDS. vLLM derives its *_ms summaries by scaling
-    # them (mean_itl_ms == mean(itls) * 1000), so no conversion belongs here.
-    # Verified against a real run: mean(ttft) 0.0274s + mean(sum itls) 0.704s
-    # == mean_e2el_ms 731.5ms.
-    bench = dict(bench)
-    bench["e2els"] = [t + sum(gaps) for t, gaps in zip(ttfts, itls)]
-    bench["e2els_derived"] = (
-        "ttft + sum(itl), seconds; vLLM emits no per-request e2e array"
-    )
-    return bench
-
-
-def reduce_metrics(bench: dict) -> tuple[dict, dict]:
-    """Drop the two unbounded arrays before the result is committed.
-
-    `itls` holds one float per generated token per request (millions of values
-    at high load) and `generated_texts` holds the completions themselves. Both
-    are dropped; vLLM's own ITL percentiles, computed from the full arrays, are
-    kept, and what was dropped is recorded so the reduction is visible in the
-    artifact rather than only in the docs.
-    """
-    dropped = {}
-    out = dict(bench)
-    for key in ("itls", "generated_texts"):
-        if key in out:
-            val = out.pop(key)
-            try:
-                if key == "itls":
-                    dropped[key] = {"n_requests": len(val),
-                                    "n_values": sum(len(x) for x in val)}
-                else:
-                    dropped[key] = {"n_requests": len(val)}
-            except TypeError:
-                dropped[key] = {"n_requests": None}
-    return out, dropped
 
 
 def assemble(args: argparse.Namespace) -> int:

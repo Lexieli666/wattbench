@@ -24,7 +24,11 @@ import math
 import os
 import statistics
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from typing import Any
+
+import harness
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(REPO, "results", "raw")
@@ -149,11 +153,40 @@ def md_table(headers: list[str], rows: list[list[str]]) -> str:
 # --------------------------------------------------------------------------
 
 
+def recomputed_goodput(r: dict) -> dict:
+    """Goodput recomputed from the preserved per-request arrays.
+
+    Points measured before 2026-08-10 01:50 carry a goodput that counted failed
+    requests as SLO-meeting (a failure reports ttft 0.0, which passes every
+    threshold). The per-request arrays are committed, so the correct value is
+    recoverable without re-running anything -- and recomputing here rather than
+    rewriting results/raw/ keeps the raw files an honest record of what the
+    harness computed at the time, with git and METHODOLOGY.md carrying the
+    correction.
+    """
+    stored = r.get("goodput") or {}
+    m = r.get("metrics") or {}
+    if not m.get("ttfts"):
+        return stored
+    slo = (r.get("config") or {}).get("slo") or {}
+    try:
+        fresh = harness.compute_goodput(
+            m, slo.get("ttft_p95_s", 1.0), slo.get("e2e_p95_s", 10.0))
+    except Exception:  # noqa: BLE001
+        return stored
+    if not fresh.get("available"):
+        return stored
+    if stored.get("goodput_req_per_s") != fresh.get("goodput_req_per_s"):
+        fresh["superseded_stored_value"] = stored.get("goodput_req_per_s")
+        fresh["recomputed"] = True
+    return fresh
+
+
 def row_view(r: dict) -> dict:
     """Flatten one raw result into the fields every table and plot reads."""
     m = r.get("metrics") or {}
     e = r.get("energy") or {}
-    gp = r.get("goodput") or {}
+    gp = recomputed_goodput(r)
     sm = r.get("server_metrics") or {}
     cfg = r.get("config") or {}
     load = cfg.get("load") or {}
