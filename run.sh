@@ -123,6 +123,8 @@ fi
 STAMP="$(date +%Y%m%dT%H%M%S)"
 BASE="$RAW/${WB_POINT_ID}__${STAMP}"
 POWER_CSV="${BASE}.power.csv"
+KV_CSV="${BASE}.kv.csv"
+KV_JSON="${BASE}.kv.json"
 POWER_JSON="${BASE}.power.json"
 SERVER_LOG="${BASE}.server.log"
 RESULT_JSON="${BASE}.json"
@@ -198,17 +200,26 @@ ensure_server() {
 
 # --- power poller ---------------------------------------------------------
 POLLER_PID=""
+KV_PID=""
 start_poller() {
   "$PY" "$REPO/power_log.py" poll --out "$POWER_CSV" --interval-ms 500 &
   POLLER_PID=$!
+  # Server-side metrics: KV-cache utilisation and queue depth are only visible
+  # here, and plan §4 asks for both. One small scrape every 2s, identical for
+  # every point, so it cannot bias a comparison between them.
+  "$PY" "$REPO/kv_log.py" poll --port "$WB_PORT" --out "$KV_CSV" --interval 2 &
+  KV_PID=$!
   sleep 2   # let the first samples land before warmup begins
 }
 stop_poller() {
-  if [[ -n "$POLLER_PID" ]] && kill -0 "$POLLER_PID" 2>/dev/null; then
-    kill -TERM "$POLLER_PID" 2>/dev/null || true
-    wait "$POLLER_PID" 2>/dev/null || true
-  fi
-  POLLER_PID=""
+  for pid_var in POLLER_PID KV_PID; do
+    pid="${!pid_var}"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill -TERM "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+    printf -v "$pid_var" '%s' ""
+  done
 }
 
 cleanup() {
@@ -324,6 +335,11 @@ fi
   --log "$POWER_CSV" --start "$WINDOW_START" --end "$WINDOW_END" \
   "${IDLE_ARGS[@]}" --out "$POWER_JSON" >/dev/null
 
+if [[ -f "$KV_CSV" ]]; then
+  "$PY" "$REPO/kv_log.py" summarize --log "$KV_CSV" \
+    --start "$WINDOW_START" --end "$WINDOW_END" --out "$KV_JSON" >/dev/null || true
+fi
+
 # --- assemble -------------------------------------------------------------
 if [[ ! -f "$BENCH_JSON" ]]; then
   log "FATAL: load generator produced no result JSON at $BENCH_JSON"
@@ -346,6 +362,8 @@ for n in ${NOTES+"${NOTES[@]}"}; do NOTE_ARGS+=(--note "$n"); done
   --bench-json "$BENCH_JSON" \
   --power-json "$POWER_JSON" \
   --power-csv "$POWER_CSV" \
+  --kv-json "$KV_JSON" \
+  --kv-csv "$KV_CSV" \
   --provenance "$PROV_JSON" \
   --server-log "$SERVER_LOG" \
   --status "$STATUS" \
