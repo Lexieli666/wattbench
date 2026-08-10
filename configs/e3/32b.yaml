@@ -1,0 +1,16 @@
+# E3 model-size frontier. Every rung is int4 at the same fixed load and the same
+# serving flags, so the only thing varying is model size. A rung that fails to
+# serve is kept as a result: what the card cannot do is part of the frontier.
+extends: ../_base_7b_awq.yaml
+experiment: E3
+point_id: e3_32b_awq_chat_r4
+description: E3 frontier rung 32b (Qwen/Qwen2.5-32B-Instruct-AWQ), int4, chat shape, 4 req/s
+
+server:
+  model: Qwen/Qwen2.5-32B-Instruct-AWQ
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 4.0
+  num_prompts: 800
