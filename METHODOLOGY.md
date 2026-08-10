@@ -101,6 +101,46 @@ Measured on the pinned configuration — the same one E1–E3 run under:
 No E0 run tripped a thermal, clock-sag, sample-gap or power-limit flag; the card
 held 2655 MHz at 77 °C, 343 W.
 
+### Within-session and between-session variance are different numbers
+
+The table above is **within-session** variance: three repeats back-to-back on
+one server load, sharing thermal state, memory layout and CUDA-graph capture.
+That is the right bar for comparing points measured inside a single sweep.
+
+It is *not* the right bar for comparing across sweeps. E1's chat 4 req/s point
+is byte-identical in configuration to E0's reference, and ran about an hour
+later in a separate session with a separately measured idle baseline. The
+result:
+
+| Metric | E0 session | E1 session | change | within-session CV |
+|---|---|---|---|---|
+| Output throughput | 506.5 tok/s | 506.5 tok/s | −0.00% | 0.01% |
+| Mean GPU power | 344.4 W | 343.7 W | −0.19% | 0.25% |
+| J per output token | 0.7015 | 0.7021 | +0.09% | 0.16% |
+| ITL p50 | 16.73 ms | 16.78 ms | +0.31% | 0.23% |
+| TTFT p50 | 87.72 ms | 88.06 ms | +0.39% | 0.54% |
+| E2E p95 | 3075 ms | 3103 ms | +0.91% | 0.41% |
+| **TTFT p95** | **155.2 ms** | **158.3 ms** | **+2.00%** | **0.48%** |
+
+Throughput, power and energy reproduce across sessions essentially exactly —
+those are the project's headline quantities, and they are solid. **Tail latency
+is not**: TTFT p95 moved 2.0%, which is 4.2× the within-session CV.
+
+Two consequences, both applied:
+
+1. **Cross-sweep comparisons of tail latency use a ~2% floor, not 0.48%.**
+   Anything smaller is session drift. Throughput, power and J/token keep the
+   tighter within-session bars, since they demonstrably reproduce.
+2. **Controls live in the same session as their treatment.** The
+   download-interference test originally compared a download-active point
+   against E1's own quiet r8 — different sessions, so it would have charged the
+   download for ordinary drift. It now runs a quiet control and a
+   download-active treatment back-to-back on one server, where the download is
+   the only thing that differs.
+
+This is why the reference configuration is repeated rather than run once: a
+single run cannot tell you which of its digits are real.
+
 ### The temperature pin was measured, not assumed
 
 `ignore_eos` fixes the token count, so pinning temperature "should not" change

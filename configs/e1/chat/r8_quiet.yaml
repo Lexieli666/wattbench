@@ -1,0 +1,19 @@
+# Same-session control for the download-interference test. Byte-identical to
+# configs/e1/chat/r8.yaml, run on the SAME server in the SAME session as
+# r8_dltest, with the download paused.
+#
+# Comparing r8_dltest against E1's own r8 would confound two variables: the
+# download, and the fact that they ran in different sessions. Measured
+# cross-session drift on this machine is real -- an identical config re-measured
+# an hour later moved TTFT p95 by 2.0%, which is 4.2x the within-session CV --
+# so the control has to live in the same session as the treatment.
+extends: ../../_base_7b_bf16.yaml
+experiment: E1-dltest
+point_id: e1_chat_7b_bf16_r8_quiet
+description: E1 chat r8, same session as r8_dltest, download paused (control)
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 8
+  num_prompts: 1600

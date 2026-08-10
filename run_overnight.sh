@@ -22,19 +22,30 @@ mkdir -p "$(dirname "$LOG")"
 
 say() { printf '[overnight %s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 
-say "starting E3 weight download in the background"
-nohup bash "$REPO/fetch_models.sh" e3 > /tmp/wattbench/fetch_e3.log 2>&1 &
-DL_PID=$!
-say "download pid $DL_PID"
-sleep 30   # let it reach steady-state throughput before measuring against it
-
-say "measuring interference control point (E1 chat r8, download active)"
+# Control and treatment must share a session. An identical config re-measured
+# an hour later moved TTFT p95 by 2.0% -- 4.2x the within-session CV -- so
+# comparing a download-active point against E1's own r8 would blame the
+# download for ordinary cross-session drift. Both points below run
+# back-to-back on the same server; the only thing that differs is the download.
+say "interference test: control and treatment in one session, same server"
 bash "$REPO/baseline.sh" E1-dltest >>"$LOG" 2>&1
-bash "$REPO/run.sh" --force "$REPO/configs/e1/chat/r8_dltest.yaml" >>"$LOG" 2>&1 \
+
+say "  control: r8 with the link quiet"
+bash "$REPO/run.sh" --force "$REPO/configs/e1/chat/r8_quiet.yaml" >>"$LOG" 2>&1 \
   || say "!! control point failed"
 
+say "  starting E3 weight download"
+nohup bash "$REPO/fetch_models.sh" e3 > /tmp/wattbench/fetch_e3.log 2>&1 &
+DL_PID=$!
+say "  download pid $DL_PID"
+sleep 45   # let it reach steady-state throughput before measuring against it
+
+say "  treatment: r8 with the download saturating the link"
+bash "$REPO/run.sh" --force "$REPO/configs/e1/chat/r8_dltest.yaml" >>"$LOG" 2>&1 \
+  || say "!! treatment point failed"
+
 DECISION="$("$PY" "$REPO/compare_points.py" \
-    --baseline e1_chat_7b_bf16_r8 --candidate e1_chat_7b_bf16_r8_dltest \
+    --baseline e1_chat_7b_bf16_r8_quiet --candidate e1_chat_7b_bf16_r8_dltest \
     --out "$REPO/results/tables/download_interference.md" 2>&1 | tail -1)"
 say "interference verdict: $DECISION"
 
