@@ -1,0 +1,45 @@
+# Int4 arm of E2 and the 7B rung of E3. Serving flags are identical to
+# _base_7b_bf16.yaml in every field except the checkpoint, so the ablation
+# isolates precision and nothing else.
+#
+# `quantization` is deliberately left null: vLLM reads quantization_config from
+# the checkpoint and picks its own kernel (awq_marlin on Ada). Forcing a kernel
+# here would measure our choice rather than what a user actually gets. The
+# kernel vLLM selected is recorded in each run's server log.
+experiment: base
+description: Qwen2.5-7B-Instruct AWQ int4 reference server
+
+server:
+  model: Qwen/Qwen2.5-7B-Instruct-AWQ
+  revision: null
+  quantization: null
+  dtype: bfloat16          # activation dtype; weights are int4 from the checkpoint
+  max_model_len: 4096
+  gpu_memory_utilization: 0.90
+  max_num_seqs: 256
+  enable_prefix_caching: false
+  port: 8000
+  extra_args: []
+  load_timeout_s: 900
+
+load:
+  dataset: random
+  input_len: 512
+  output_len: 128
+  request_rate: 4.0
+  burstiness: 1.0
+  num_prompts: auto
+  max_concurrency: null
+  seed: 0
+  ignore_eos: true
+  extra_args: []
+
+protocol:
+  warmup_s: 30
+  warmup_prompts: 32
+  min_duration_s: 180
+  min_requests: 200
+
+slo:
+  ttft_p95_s: 1.0
+  e2e_p95_s: 10.0

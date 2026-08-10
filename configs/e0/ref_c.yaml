@@ -1,0 +1,10 @@
+# E0 stability baseline, repeat c of 3. Identical in every respect to the other
+# two: the whole point is to measure run-to-run variation, so nothing may differ.
+extends: ../_base_7b_bf16.yaml
+experiment: E0
+point_id: e0_ref_7b_bf16_chat_r4_c
+description: reference configuration repeat c (Qwen2.5-7B BF16, 512in/128out, 4 req/s)
+
+load:
+  request_rate: 4.0
+  num_prompts: 800
