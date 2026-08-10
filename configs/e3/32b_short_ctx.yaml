@@ -1,0 +1,18 @@
+extends: ../_base_7b_awq.yaml
+experiment: E3
+point_id: e3_32b_awq_chat_r4_ctx1024
+description: >
+  E3 frontier, 32B int4 at a reduced 1024-token context. Run only if the
+  shared 4096-token config fails to serve; the gap between them is the KV
+  squeeze the plan asks to document honestly.
+
+server:
+  model: Qwen/Qwen2.5-32B-Instruct-AWQ
+  max_model_len: 1024
+  gpu_memory_utilization: 0.95
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 4.0
+  num_prompts: 800
