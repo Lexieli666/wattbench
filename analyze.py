@@ -911,16 +911,17 @@ def _style():
     return plt
 
 
-def _finish(ax, plt, path: str, footnote: str | None = None):
+def _finish(ax, plt, path: str, footnote: str | None = None, bottom: float = 0.0):
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
     for side in ("left", "bottom"):
         ax.spines[side].set_color(GRID)
     if footnote:
         ax.figure.text(0.01, 0.005, footnote, ha="left", va="bottom",
-                       fontsize=7.5, color=INK_MUTED)
+                       fontsize=7.5, color=INK_MUTED, linespacing=1.45)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    ax.figure.tight_layout(rect=(0, 0.035, 1, 1) if footnote else None)
+    reserve = bottom + (0.035 if footnote else 0.0)
+    ax.figure.tight_layout(rect=(0, reserve, 1, 1) if reserve else None)
     ax.figure.savefig(path)
     plt.close(ax.figure)
     print(f"[analyze] wrote {os.path.relpath(path, REPO)}")
@@ -992,7 +993,7 @@ def plot_breakeven(rows: list[dict], pricing: dict, path: str) -> bool:
         a = usd_per_1m_out(amort_hr, p["out_tok_throughput"]) or float("nan")
         owned.append(e + a)
 
-    fig, ax = plt.subplots(figsize=(7.6, 4.8))
+    fig, ax = plt.subplots(figsize=(7.8, 4.6))
     ax.plot(x, owned, marker="o", color=C["blue"],
             label="Owned 4090 (amortised + electricity)",
             markeredgecolor=SURFACE, markeredgewidth=1.5)
@@ -1008,32 +1009,49 @@ def plot_breakeven(rows: list[dict], pricing: dict, path: str) -> bool:
 
     # API list prices as horizontal reference lines. Comparable-weight-class
     # rows only -- a frontier price on this axis would imply a trade that the
-    # capability evidence does not support.
+    # capability evidence does not support. These are direct-labelled at the
+    # right edge rather than pushed into the legend: they are reference levels,
+    # and a legend covering them would defeat the point of drawing them.
     ref = pts[-1]
     in_tok = ref["total_input_tokens"] or 1
     out_tok = ref["total_output_tokens"] or 1
     api_slots = [C["aqua"], C["violet"], C["magenta"]]
-    n = 0
+    api_lines = []
     for api in pricing["api_prices"]["open_weight_hosted"]:
-        if not api.get("weight_class_comparable") or n >= len(api_slots):
+        if not api.get("weight_class_comparable") or len(api_lines) >= len(api_slots):
             continue
         eff = api_effective_out_price(api["usd_per_1m_input"], api["usd_per_1m_output"],
                                       in_tok, out_tok)
-        ax.axhline(eff, color=api_slots[n], linestyle=(0, (5, 3)), linewidth=1.6,
-                   label=f"{api['provider']} {api['model']} list (reported)")
-        n += 1
+        name = api["model"].split("/")[-1]
+        for suffix in ("-Instruct-Turbo", "-Instruct-Lite", "-Instruct"):
+            name = name.replace(suffix, "")
+        api_lines.append((eff, f"{api['provider']} {name}", api_slots[len(api_lines)]))
 
     ax.set_xscale("log")
     ax.set_yscale("log")
+    ax.set_xlim(min(x) * 0.75, max(x) * 1.25)
+    for eff, label, colour in api_lines:
+        ax.axhline(eff, color=colour, linestyle=(0, (5, 3)), linewidth=1.6)
+        # Sit the label just above its own line, anchored at the left edge, so
+        # it can never run off the right of the axes however long the name is.
+        ax.annotate(f"{label} — ${eff:.2f}", (min(x) * 0.79, eff),
+                    xytext=(0, 3), textcoords="offset points",
+                    va="bottom", ha="left", fontsize=8.5, color=colour)
+
     ax.set_xlabel("Offered load (requests/s, Poisson arrivals)")
     ax.set_ylabel("Cost per 1M output tokens (USD)")
     ax.set_title("Self-hosting cost falls with load; API list prices do not\n"
                  "RTX 4090, Qwen2.5-7B BF16, vLLM")
-    ax.legend(loc="upper right")
+    # Legend carries only the measured lines; the dashed levels are labelled
+    # in place, and the footnote says what they are.
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.19), ncol=2,
+              frameon=False, fontsize=9)
     _finish(ax, plt, path,
-            "Solid lines measured on this machine and priced with dated public "
-            "tariffs; dashed lines are vendor list prices — reported, not measured. "
-            "API prices blended to an effective output price at the benchmarked shape.")
+            "Solid lines measured on this machine, priced with dated public tariffs.\n"
+            "Dashed levels are vendor list prices — reported, not measured — blended to\n"
+            "an effective output price at the benchmarked input:output ratio, because\n"
+            "self-hosting pays for prefill too.",
+            bottom=0.11)
     return True
 
 
