@@ -456,6 +456,147 @@ def max_sustainable_rate(srows: list[dict]) -> float | None:
 
 
 # --------------------------------------------------------------------------
+# E2 quantization ablation
+# --------------------------------------------------------------------------
+
+
+def arm_of(r: dict) -> str:
+    """Which precision arm a run belongs to, from its checkpoint name."""
+    model = (r["model"] or "").lower()
+    if "awq" in model:
+        return "awq"
+    if "gptq" in model:
+        return "gptq"
+    return "bf16"
+
+
+def load_gsm8k() -> dict[str, dict]:
+    """Guard results, newest per arm."""
+    out: dict[str, dict] = {}
+    for path in sorted(glob.glob(os.path.join(RAW, "gsm8k_*.json"))):
+        with open(path) as fh:
+            try:
+                r = json.load(fh)
+            except json.JSONDecodeError:
+                continue
+        label = (r.get("config") or {}).get("label")
+        if label:
+            out[label] = r          # sorted() means the newest wins
+    return out
+
+
+def cmd_ablation(args: argparse.Namespace) -> str:
+    rows = [row_view(r) for r in load_results(args.experiment or "E2",
+            include_superseded=getattr(args, "include_superseded", False))]
+    guards = load_gsm8k()
+    if not rows and not guards:
+        return f"E2 quantization ablation: {NOT_RUN}."
+
+    out = ["## E2 — quantization ablation (Qwen2.5-7B, chat shape)", ""]
+
+    rates = sorted({r["request_rate"] for r in rows if r["request_rate"] is not None},
+                   key=float)
+    arms = ["bf16", "awq", "gptq"]
+    body = []
+    for rate in rates:
+        for arm in arms:
+            match = [r for r in rows if r["request_rate"] == rate and arm_of(r) == arm]
+            if not match:
+                continue
+            r = match[0]
+            base = next((x for x in rows
+                         if x["request_rate"] == rate and arm_of(x) == "bf16"), None)
+            def rel(field: str) -> str:
+                if not base or base[field] in (None, 0) or r[field] is None:
+                    return "-"
+                if arm == "bf16":
+                    return "baseline"
+                return f"{(r[field] / base[field] - 1) * 100:+.1f}%"
+            body.append([
+                fmt(rate), arm,
+                fmt(r["out_tok_throughput"], ".4g"), rel("out_tok_throughput"),
+                fmt(r["ttft_p95_ms"], ".4g"),
+                fmt(r["j_per_out_tok"], ".3g"), rel("j_per_out_tok"),
+                fmt(r["mean_power_w"], ".4g"),
+                fmt(r["slo_attainment"], ".3f"),
+            ])
+    if body:
+        out.append(md_table(
+            ["req/s", "arm", "out tok/s", "vs BF16", "TTFT p95 ms",
+             "J/tok", "vs BF16", "mean W", "SLO attain"], body))
+        out.append("")
+        out.append("Relative columns compare against the BF16 arm at the same offered "
+                   "rate. Per E0, throughput differences below ~0.4% and energy "
+                   "differences below ~0.4% are inside run-to-run noise.")
+        out.append("")
+
+    # --- quality guard ---
+    out.append("### Quality guard — GSM8K exact match")
+    out.append("")
+    if not guards:
+        out.append(f"{NOT_RUN}. Speed without a quality number is not a tradeoff, "
+                   f"it is half of one.")
+    else:
+        gbody = []
+        for arm in arms:
+            g = guards.get(arm)
+            if not g:
+                gbody.append([arm, NOT_RUN, NOT_RUN, NOT_RUN, NOT_RUN])
+                continue
+            m = g["metrics"]
+            n, k = m["n_items"], m["n_correct"]
+            # Wilson 95% interval: with n=50 the normal approximation is poor.
+            p = k / n
+            z = 1.96
+            denom = 1 + z * z / n
+            centre = (p + z * z / (2 * n)) / denom
+            half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+            gbody.append([
+                arm, f"{k}/{n}", f"{p:.1%}",
+                f"{max(0.0, centre - half):.1%} – {min(1.0, centre + half):.1%}",
+                str(m.get("n_errors", 0)),
+            ])
+        out.append(md_table(
+            ["arm", "correct", "exact match", "95% Wilson interval", "request errors"],
+            gbody))
+        out.append("")
+        out.append("**50 items. The intervals overlap unless the gap is large**, so "
+                   "this guard can only rule out a big quality collapse from "
+                   "quantization — it cannot certify parity. It says nothing about "
+                   "any capability other than grade-school arithmetic word problems.")
+
+    # --- what int4 buys structurally ---
+    out.append("")
+    out.append("### Longest servable context")
+    out.append("")
+    lim = []
+    for path in sorted(glob.glob(os.path.join(RAW, "limits_context_*.json"))):
+        with open(path) as fh:
+            try:
+                r = json.load(fh)
+            except json.JSONDecodeError:
+                continue
+        label = (r.get("config") or {}).get("label", "?")
+        best = (r.get("metrics") or {}).get("longest_servable_context")
+        attempts = (r.get("metrics") or {}).get("attempts") or []
+        failed = next((a for a in attempts if not a.get("served")), None)
+        lim.append([
+            label,
+            fmt(best) if best else "none served",
+            str(next((a.get("kv_cache_tokens") for a in attempts
+                      if a.get("max_model_len") == best), "-") or "-"),
+            (failed or {}).get("error") or "-",
+        ])
+    if lim:
+        out.append(md_table(
+            ["arm", "longest servable context", "KV cache tokens there",
+             "why the next rung failed"], lim))
+    else:
+        out.append(f"{NOT_RUN}.")
+    return "\n".join(out)
+
+
+# --------------------------------------------------------------------------
 # E3 frontier
 # --------------------------------------------------------------------------
 
@@ -954,6 +1095,7 @@ def cmd_all(args: argparse.Namespace) -> str:
         "summary.md": cmd_summary(ns),
         "e0_variance.md": cmd_variance(ns),
         "e1_sweep.md": cmd_sweep(ns),
+        "e2_ablation.md": cmd_ablation(ns),
         "e3_frontier.md": cmd_frontier(ns),
         "e5_economics.md": cmd_economics(ns),
     }
@@ -969,7 +1111,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("summary", "variance", "sweep", "frontier", "economics", "plots", "all"):
+    for name in ("summary", "variance", "sweep", "ablation", "frontier",
+                 "economics", "plots", "all"):
         p = sub.add_parser(name)
         p.add_argument("--experiment", default=None)
         p.add_argument("--include-superseded", action="store_true",
@@ -977,7 +1120,8 @@ def main() -> int:
     args = ap.parse_args()
     fn = {
         "summary": cmd_summary, "variance": cmd_variance, "sweep": cmd_sweep,
-        "frontier": cmd_frontier, "economics": cmd_economics, "plots": cmd_plots,
+        "ablation": cmd_ablation, "frontier": cmd_frontier,
+        "economics": cmd_economics, "plots": cmd_plots,
         "all": cmd_all,
     }[args.cmd]
     out = fn(args)
