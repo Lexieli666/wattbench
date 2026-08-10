@@ -1,0 +1,1 @@
+timestamp,power_w,power_limit_w,clock_sm_mhz,clock_mem_mhz,temp_c,util_gpu_pct,util_mem_pct,mem_used_mib,pstate,throttle_sw_power_cap,throttle_hw_thermal,throttle_sw_thermal,throttle_hw_slowdown

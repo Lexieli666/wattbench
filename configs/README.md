@@ -32,6 +32,7 @@ load:
   max_concurrency: null         # null = unbounded
   seed: 0
   ignore_eos: true              # forces exactly output_len tokens per request
+  temperature: 0.0              # null = server default (per-checkpoint!); pin it
   extra_args: []
 
 protocol:                       # plan §2 stability protocol
@@ -52,6 +53,12 @@ max_model_len, gpu_memory_utilization, max_num_seqs, prefix caching, extra
 args, port) reuse one running vLLM process. Change any of those and the server
 restarts — which is also why changing one mid-series breaks comparability and
 requires rerunning the affected points.
+
+## Before running any point
+
+`run.sh` refuses to start without a fresh idle-power baseline for the current
+session (see `results/idle/README.md`). Measure one with `./baseline.sh <series>`,
+or let `./sweep.sh --series <name>` do it before it loads any weights.
 
 ## Conventions
 

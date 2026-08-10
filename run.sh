@@ -246,6 +246,11 @@ bench_args() {
   if [[ "$WB_REQUEST_RATE" != "inf" ]]; then a+=(--burstiness "$WB_BURSTINESS"); fi
   [[ -n "$WB_MAX_CONCURRENCY" ]] && a+=(--max-concurrency "$WB_MAX_CONCURRENCY")
   [[ -n "$WB_IGNORE_EOS" ]] && a+=(--ignore-eos)
+  # vLLM 0.26 no longer forces greedy decoding; unset means the server's own
+  # per-checkpoint default, which would differ across the E3 ladder.
+  [[ -n "$WB_TEMPERATURE" ]] && a+=(--temperature "$WB_TEMPERATURE")
+  # Progress-bar rendering only; keeps committed sweep logs readable.
+  a+=(--disable-tqdm)
   if [[ -n "$out_json" ]]; then
     a+=(--save-result --save-detailed
         --result-dir "$(dirname "$out_json")"
