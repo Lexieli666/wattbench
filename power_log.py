@@ -395,8 +395,15 @@ def window(rows: list[dict], start: str | None, end: str | None) -> list[dict]:
 # --------------------------------------------------------------------------
 
 
-def idle(out_path: str, duration_s: float, interval_ms: int, settle_s: float) -> int:
-    """Measure idle draw. The first settle_s seconds are discarded."""
+def idle(out_path: str, duration_s: float, interval_ms: int, settle_s: float,
+         series: str | None = None) -> int:
+    """Measure idle draw. The first settle_s seconds are discarded.
+
+    Idle draw is not a constant of the machine: it moves with what the Windows
+    desktop happens to be doing, driver state, and ambient temperature. A
+    baseline is therefore measured per series and stamped with the series name
+    and time, and every run records which baseline it subtracted.
+    """
     tmp = out_path + ".samples.csv"
     print(f"[power_log] measuring idle baseline for {duration_s:.0f}s "
           f"(discarding first {settle_s:.0f}s)...")
@@ -411,9 +418,22 @@ def idle(out_path: str, duration_s: float, interval_ms: int, settle_s: float) ->
     kept = [r for r in rows if r["ts"] >= cutoff] or rows
     summary = integrate(kept)
     summary["mode"] = "idle_baseline"
+    summary["series"] = series
+    summary["measured_at"] = datetime.now().astimezone().isoformat()
     summary["settle_s_discarded"] = settle_s
     summary["samples_csv"] = os.path.basename(tmp)
     summary["idle_power_w"] = summary.get("mean_power_w")
+
+    # An idle baseline taken while something is still using the GPU is worse
+    # than none: it would be subtracted from every J/token in the series.
+    util = summary.get("util_gpu_pct_mean")
+    if util is not None and util > 25:
+        summary["warning"] = (
+            f"mean GPU utilisation was {util}% during the idle measurement; "
+            f"something else is using the card"
+        )
+        print(f"[power_log] WARNING: {summary['warning']}", file=sys.stderr)
+
     with open(out_path, "w") as fh:
         json.dump(summary, fh, indent=2)
     print(f"[power_log] idle baseline = {summary.get('idle_power_w')} W "
@@ -442,6 +462,8 @@ def main() -> int:
     i.add_argument("--duration", type=float, default=120.0)
     i.add_argument("--interval-ms", type=int, default=500)
     i.add_argument("--settle", type=float, default=15.0)
+    i.add_argument("--series", default=None,
+                   help="experiment series this baseline belongs to, e.g. E0 or E1-chat")
 
     g = sub.add_parser("integrate", help="CSV -> energy summary JSON")
     g.add_argument("--log", required=True)
@@ -456,7 +478,7 @@ def main() -> int:
     if a.cmd == "poll":
         return poll(a.out, a.interval_ms, a.duration)
     if a.cmd == "idle":
-        return idle(a.out, a.duration, a.interval_ms, a.settle)
+        return idle(a.out, a.duration, a.interval_ms, a.settle, a.series)
     if a.cmd == "integrate":
         rows = read_log(a.log)
         rows = window(rows, a.start, a.end)
