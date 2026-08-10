@@ -352,6 +352,57 @@ def _load_json(path: str | None) -> dict | None:
         return json.load(fh)
 
 
+def derive_e2els(bench: dict) -> dict:
+    """Reconstruct per-request end-to-end latency, in seconds.
+
+    `vllm bench serve --save-detailed` emits `ttfts` and `itls` but no
+    per-request end-to-end array, and end-to-end is half of the goodput SLO.
+    For a streamed request the total is exactly the time to first token plus
+    every inter-token gap after it, so the array is recoverable -- but only
+    before `itls` is dropped from the committed artifact, hence doing it here.
+    """
+    if bench.get("e2els") or not bench.get("ttfts") or not bench.get("itls"):
+        return bench
+    ttfts, itls = bench["ttfts"], bench["itls"]
+    if len(ttfts) != len(itls):
+        return bench
+    # Both arrays are in SECONDS. vLLM derives its *_ms summaries by scaling
+    # them (mean_itl_ms == mean(itls) * 1000), so no conversion belongs here.
+    # Verified against a real run: mean(ttft) 0.0274s + mean(sum itls) 0.704s
+    # == mean_e2el_ms 731.5ms.
+    bench = dict(bench)
+    bench["e2els"] = [t + sum(gaps) for t, gaps in zip(ttfts, itls)]
+    bench["e2els_derived"] = (
+        "ttft + sum(itl), seconds; vLLM emits no per-request e2e array"
+    )
+    return bench
+
+
+def reduce_metrics(bench: dict) -> tuple[dict, dict]:
+    """Drop the two unbounded arrays before the result is committed.
+
+    `itls` holds one float per generated token per request (millions of values
+    at high load) and `generated_texts` holds the completions themselves. Both
+    are dropped; vLLM's own ITL percentiles, computed from the full arrays, are
+    kept, and what was dropped is recorded so the reduction is visible in the
+    artifact rather than only in the docs.
+    """
+    dropped = {}
+    out = dict(bench)
+    for key in ("itls", "generated_texts"):
+        if key in out:
+            val = out.pop(key)
+            try:
+                if key == "itls":
+                    dropped[key] = {"n_requests": len(val),
+                                    "n_values": sum(len(x) for x in val)}
+                else:
+                    dropped[key] = {"n_requests": len(val)}
+            except TypeError:
+                dropped[key] = {"n_requests": None}
+    return out, dropped
+
+
 def compute_goodput(bench: dict, slo_ttft_s: float, slo_e2e_s: float) -> dict:
     """Per-request SLO attainment from vllm bench serve's per-request arrays.
 

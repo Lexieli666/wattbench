@@ -1168,6 +1168,14 @@ def plot_goodput(rows: list[dict], path: str, shape: str | None = None) -> bool:
 
     ax.set_xscale("log")
     ax.set_yscale("log")
+    # A log axis cannot render zero, so points where goodput collapsed entirely
+    # would silently vanish off the bottom. Say so instead.
+    dead = [(float(p["request_rate"])) for p in pts if p["goodput_rps"] == 0]
+    if dead:
+        ax.annotate(f"goodput = 0 at ≥ {min(dead):g} req/s\n(no request met the SLO)",
+                    (min(dead), ax.get_ylim()[0]), xytext=(6, 26),
+                    textcoords="offset points", fontsize=8.5, color=C["orange"],
+                    va="bottom", ha="left")
     ax.set_xlabel("Offered load (requests/s)")
     ax.set_ylabel("Requests/s")
     ax.set_title("Goodput saturates before throughput does\n"

@@ -1,0 +1,30 @@
+{
+  "available": true,
+  "n_samples": 114,
+  "kv_cache_usage_perc": {
+    "min": 0.0,
+    "mean": 0.8582,
+    "p95": 0.9969,
+    "max": 0.9994
+  },
+  "num_requests_running": {
+    "min": 0.0,
+    "mean": 44.807,
+    "p95": 52.0,
+    "max": 53.0
+  },
+  "num_requests_waiting": {
+    "min": 0.0,
+    "mean": 18.7632,
+    "p95": 37.0,
+    "max": 40.0
+  },
+  "num_preemptions_total_delta": 43.0,
+  "prompt_tokens_total_delta": 1228800.0,
+  "generation_tokens_total_delta": 153540.0,
+  "queue_growth": {
+    "first_quarter_mean": 3.68,
+    "last_quarter_mean": 24.82,
+    "growing": true
+  }
+}
