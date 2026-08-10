@@ -165,14 +165,24 @@ def effective_num_prompts(cfg: dict) -> int:
     return max(min_req, by_time)
 
 
+WARMUP_PROMPT_CAP = 600
+
+
 def warmup_prompts(cfg: dict) -> int:
-    """Prompts for the warmup pass: warmup_s worth of load at the same rate."""
+    """Prompts for the warmup pass: warmup_s worth of load at the same rate.
+
+    Capped, because at an offered rate the server cannot sustain, "30s of
+    offered load" is far more than 30s of work -- the warmup would outlast the
+    measurement. The cap still delivers a saturated card at steady clocks,
+    which is what the warmup is for.
+    """
     l, p = cfg["load"], cfg["protocol"]
     floor = int(p.get("warmup_prompts", 32))
     rate = l.get("request_rate")
     if rate in (None, "inf", "infinity") or float(rate) == float("inf"):
         return floor
-    return max(floor, int(float(rate) * float(p.get("warmup_s", 30))))
+    return min(WARMUP_PROMPT_CAP,
+               max(floor, int(float(rate) * float(p.get("warmup_s", 30)))))
 
 
 def export_env(cfg: dict) -> str:
@@ -309,7 +319,8 @@ def provenance() -> dict:
         "env": {
             k: os.environ.get(k)
             for k in ("HF_HOME", "VLLM_ATTENTION_BACKEND", "CUDA_VISIBLE_DEVICES",
-                      "VLLM_USE_V1", "WATTBENCH_NVIDIA_SMI")
+                      "VLLM_USE_V1", "VLLM_USE_V2_MODEL_RUNNER",
+                      "VLLM_USE_FLASHINFER_SAMPLER", "WATTBENCH_NVIDIA_SMI")
             if os.environ.get(k)
         },
     }
@@ -374,10 +385,36 @@ def compute_goodput(bench: dict, slo_ttft_s: float, slo_e2e_s: float) -> dict:
         "n_met_both": met_both,
         "n_met_ttft": met_ttft,
         "n_met_e2e": met_e2e,
-        "goodput_req_per_s": round(met_both / dur, 4),
+        "goodput_req_per_s": round(met_both / dur, 6),
         "slo_attainment_frac": round(met_both / denom, 4) if denom else None,
         "note": "denominator is requests issued, so failed requests count as SLO misses",
     }
+
+
+def derive_e2els(bench: dict) -> dict:
+    """Reconstruct per-request end-to-end latency, in seconds.
+
+    `vllm bench serve --save-detailed` emits `ttfts` and `itls` but no
+    per-request end-to-end array, and end-to-end is half of the goodput SLO.
+    For a streamed request the total is exactly the time to first token plus
+    every inter-token gap after it, so the array is recoverable -- but only
+    before `itls` is dropped from the committed artifact, hence doing it here.
+    """
+    if bench.get("e2els") or not bench.get("ttfts") or not bench.get("itls"):
+        return bench
+    ttfts, itls = bench["ttfts"], bench["itls"]
+    if len(ttfts) != len(itls):
+        return bench
+    # Both arrays are in SECONDS. vLLM derives its *_ms summaries by scaling
+    # them (mean_itl_ms == mean(itls) * 1000), so no conversion belongs here.
+    # Verified against a real run: mean(ttft) 0.0274s + mean(sum itls) 0.704s
+    # == mean_e2el_ms 731.5ms.
+    bench = dict(bench)
+    bench["e2els"] = [t + sum(gaps) for t, gaps in zip(ttfts, itls)]
+    bench["e2els_derived"] = (
+        "ttft + sum(itl), seconds; vLLM emits no per-request e2e array"
+    )
+    return bench
 
 
 def reduce_metrics(bench: dict) -> tuple[dict, dict]:
@@ -416,6 +453,7 @@ def assemble(args: argparse.Namespace) -> int:
 
     # Freeze `auto` sizing to the value actually used, so the record is exact.
     cfg["load"]["num_prompts"] = effective_num_prompts(cfg)
+    bench = derive_e2els(bench)
     bench, dropped_arrays = reduce_metrics(bench)
 
     slo_ttft = cfg["slo"]["ttft_p95_s"]
@@ -519,7 +557,9 @@ def sanity_checks(result: dict) -> dict:
     tput = m.get("request_throughput")
     gp = g.get("goodput_req_per_s")
     if tput is not None and gp is not None:
-        add("goodput_le_throughput", gp <= tput + 1e-9,
+        # Tolerance absorbs the rounding applied to the stored goodput; at 100%
+        # SLO attainment the two are the same quantity computed twice.
+        add("goodput_le_throughput", gp <= tput * (1 + 1e-4) + 1e-9,
             f"goodput={gp} req/s vs throughput={tput} req/s")
     else:
         add("goodput_le_throughput", None, "throughput or goodput missing")
@@ -533,14 +573,26 @@ def sanity_checks(result: dict) -> dict:
             add(f"percentiles_ordered_{base}", p50 <= p99 + 1e-9,
                 f"p50={p50}ms p99={p99}ms mean={mean}ms")
 
-    # energy cross-check: trapezoid vs mean x duration
+    # Energy integration. The gate is the discretisation bound (half the spread
+    # between left- and right-Riemann sums), which measures whether the ~2Hz
+    # sample rate is fast enough to integrate this power trace.
     cc = e.get("crosscheck") or {}
+    bound = cc.get("discretisation_bound")
     rel = cc.get("abs_rel_diff")
-    if rel is not None:
-        add("energy_integration_crosscheck", rel < 0.02,
-            f"|trapezoid - mean*dt| / trapezoid = {rel:.4f} (tolerance 0.02)")
+    if bound is not None:
+        add("energy_integration_bound", bound < 0.02,
+            f"half-spread of Riemann sums / trapezoid = {bound:.4f} (tolerance 0.02)")
     else:
-        add("energy_integration_crosscheck", None, "no power data")
+        add("energy_integration_bound", None, "no power data")
+    if rel is not None:
+        # Informational: unweighted sample mean is not the time-weighted mean
+        # when the cadence is uneven, so this is reported, never a FAIL.
+        checks.append({
+            "name": "energy_vs_mean_power_duration",
+            "result": "INFO",
+            "detail": f"|mean*dt - trapezoid| / trapezoid = {rel:.4f} "
+                      f"(not a gate; see power_log.py)",
+        })
 
     # power window should cover the benchmark duration
     dur = m.get("duration")
@@ -559,14 +611,21 @@ def sanity_checks(result: dict) -> dict:
         add("all_requests_completed", completed == requested,
             f"{completed}/{requested} completed")
 
-    # protocol minimums
+    # Protocol minimum is plan §2's "each point >= 3 minutes OR >= 200 requests".
+    # A saturated high-rate point can satisfy the request count in well under
+    # three minutes; that is a valid point, not a short run.
     proto = (result.get("config") or {}).get("protocol", {})
-    if dur is not None:
-        add("meets_min_duration", dur >= proto.get("min_duration_s", 0) * 0.95,
-            f"duration {dur:.1f}s vs min {proto.get('min_duration_s')}s")
-    if completed is not None:
-        add("meets_min_requests", completed >= proto.get("min_requests", 0),
-            f"{completed} completed vs min {proto.get('min_requests')}")
+    min_dur = proto.get("min_duration_s", 0)
+    min_req = proto.get("min_requests", 0)
+    if dur is not None or completed is not None:
+        by_time = dur is not None and dur >= min_dur * 0.95
+        by_count = completed is not None and completed >= min_req
+        satisfied_by = "+".join(
+            n for n, ok in (("duration", by_time), ("count", by_count)) if ok
+        ) or "neither"
+        add("meets_protocol_minimum", by_time or by_count,
+            f"duration {dur if dur is None else round(dur, 1)}s (min {min_dur}s), "
+            f"{completed} requests (min {min_req}); satisfied by {satisfied_by}")
 
     # no unflagged thermal problems
     flags = e.get("flags")
@@ -580,6 +639,7 @@ def sanity_checks(result: dict) -> dict:
         "n_pass": sum(1 for c in checks if c["result"] == "PASS"),
         "n_fail": n_fail,
         "n_skip": sum(1 for c in checks if c["result"] == "SKIP"),
+        "n_info": sum(1 for c in checks if c["result"] == "INFO"),
         "overall": "PASS" if n_fail == 0 else "FAIL",
     }
 

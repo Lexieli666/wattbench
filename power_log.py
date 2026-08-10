@@ -231,6 +231,8 @@ def integrate(
         }
 
     energy_j = 0.0
+    left_j = 0.0     # left-Riemann sum over the same intervals
+    right_j = 0.0    # right-Riemann sum over the same intervals
     integrated_s = 0.0
     gaps = 0
     gap_s_total = 0.0
@@ -245,6 +247,8 @@ def integrate(
             gap_s_total += dt
             continue
         energy_j += 0.5 * (a["power_w"] + b["power_w"]) * dt
+        left_j += a["power_w"] * dt
+        right_j += b["power_w"] * dt
         integrated_s += dt
         dts.append(dt)
 
@@ -327,12 +331,29 @@ def integrate(
         },
     }
 
-    # Cross-check: trapezoidal integral vs mean power x integrated duration.
-    if mean_power_integrated is not None:
+    # Two independent cross-checks on the integral.
+    #
+    # discretisation_bound is the one that gates a run. Left- and right-Riemann
+    # sums over the same intervals bracket the true integral for a monotone
+    # segment, and the trapezoid is their midpoint, so half their spread over
+    # the total is a bound on the error introduced by sampling at ~2Hz rather
+    # than continuously. It answers the question that matters: is this sample
+    # rate fast enough to integrate this signal?
+    #
+    # mean_power_crosscheck is the plan's "integrated energy ~= mean power x
+    # duration". It is reported but does NOT gate, because the unweighted mean
+    # of samples is only equal to the time-weighted mean when the sample
+    # cadence is uniform -- and it is not under WSL2, where nvidia-smi returns
+    # faster at idle than under load. On a short window containing a cold-start
+    # ramp the two legitimately differ by a few percent with nothing wrong.
+    if mean_power_integrated is not None and energy_j:
         naive_j = mean_power_arith * integrated_s
         out["crosscheck"] = {
             "naive_energy_j": round(naive_j, 2),
-            "abs_rel_diff": round(abs(naive_j - energy_j) / energy_j, 5) if energy_j else None,
+            "abs_rel_diff": round(abs(naive_j - energy_j) / energy_j, 5),
+            "left_riemann_j": round(left_j, 2),
+            "right_riemann_j": round(right_j, 2),
+            "discretisation_bound": round(abs(right_j - left_j) / (2 * energy_j), 5),
         }
 
     # A thermally throttled or clock-sagging run is flagged, not discarded.

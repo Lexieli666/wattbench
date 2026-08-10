@@ -37,6 +37,14 @@ export HF_HOME="${HF_HOME:-$HOME/.cache/huggingface}"
 # runner has no such requirement. This is set for every run in the project, so
 # the choice is constant across all experiments and comparability holds.
 export VLLM_USE_V2_MODEL_RUNNER="${VLLM_USE_V2_MODEL_RUNNER:-0}"
+
+# FlashInfer JIT-compiles its top-k/top-p sampling kernel on first use and needs
+# nvcc to do it. No CUDA toolkit is installed here (the wheels ship their own
+# kernels), so the engine dies with "Could not find nvcc". Fall back to vLLM's
+# PyTorch-native sampler, which is what vLLM's own error message recommends.
+# Sampling is a negligible share of decode time, and the setting is constant
+# across every run in this project.
+export VLLM_USE_FLASHINFER_SAMPLER="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
 export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"   # ~2x faster here; see fetch_models.sh
 # Weights must live on ext4; NTFS passthrough makes model load pathologically slow.
 case "$HF_HOME" in

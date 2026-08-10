@@ -1,0 +1,10 @@
+extends: ../../_base_7b_bf16.yaml
+experiment: E1
+point_id: e1_chat_7b_bf16_r32
+description: E1 load sweep, chat shape (512in/128out), 32 req/s Poisson
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 32
+  num_prompts: 2400
