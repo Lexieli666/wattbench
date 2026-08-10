@@ -1,0 +1,10 @@
+extends: ../../_base_7b_bf16.yaml
+experiment: E2
+point_id: e2_bf16_7b_chat_r16
+description: E2 quantization ablation, BF16 arm, chat shape, 16 req/s
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 16
+  num_prompts: 2400

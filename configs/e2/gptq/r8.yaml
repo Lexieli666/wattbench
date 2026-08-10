@@ -1,0 +1,17 @@
+# Kernel/format pilot only. Plan §3 leaves the int4 format open -- "AWQ or GPTQ,
+# whichever vLLM serves faster for this family; note which". This single point
+# is measured against the AWQ point at the same rate to make that choice on
+# evidence rather than assumption. Whichever wins is used for E3.
+extends: ../../_base_7b_awq.yaml
+experiment: E2
+point_id: e2_gptq_7b_chat_r8
+description: E2 int4 format pilot, GPTQ-Int4, chat shape, 8 req/s
+
+server:
+  model: Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 8
+  num_prompts: 1600
