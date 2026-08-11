@@ -1,0 +1,27 @@
+# A repeat of the E3 7B rung, run after the sweep, to answer one question: did
+# the intermittent host GPU consumer that makes this machine's idle draw
+# bimodal (~20W quiescent, bursts to ~62W) also inflate the sweep's power
+# numbers?
+#
+# Same model, same flags, same offered load as configs/e3/7b.yaml. The only
+# difference is when it ran. Comparing mean_power_w against the sweep's 7B rung
+# tests the runs themselves, and mean power is independent of which idle
+# baseline is subtracted, so the comparison is unaffected by that open question.
+#
+# experiment is E3-recheck, not E3, for two reasons: a distinct point_id keeps
+# it from superseding the sweep's 7B rung in load_results, and a distinct
+# experiment keeps it out of the frontier table, where a second 7B row would
+# read as a second model rather than as a control.
+extends: ../_base_7b_awq.yaml
+experiment: E3-recheck
+point_id: e3_7b_awq_chat_r4_recheck
+description: E3 7B rung re-measured after the sweep, as a control on host GPU interference
+
+server:
+  model: Qwen/Qwen2.5-7B-Instruct-AWQ
+
+load:
+  input_len: 512
+  output_len: 128
+  request_rate: 4.0
+  num_prompts: 800

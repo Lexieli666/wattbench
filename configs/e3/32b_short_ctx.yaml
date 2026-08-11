@@ -9,7 +9,17 @@ description: >
 server:
   model: Qwen/Qwen2.5-32B-Instruct-AWQ
   max_model_len: 1024
-  gpu_memory_utilization: 0.95
+  # 0.90, not 0.95. Two reasons, one practical and one methodological.
+  # Practical: the Windows desktop holds ~1.5GB of the 24GB card at all times,
+  # so 0.95 (22.79GiB) exceeds the 22.45GiB actually free and vLLM refuses to
+  # start -- before loading any weights. The 2026-08-11 attempt failed exactly
+  # this way and was misrecorded as "32B unservable at reduced context", which
+  # is a statement about the flag, not about the card.
+  # Methodological: every other rung in this series runs at 0.90. Changing the
+  # memory budget here would mean the reduced-context point differed from the
+  # 4096 point in two variables at once, so the gap between them would no
+  # longer isolate context.
+  gpu_memory_utilization: 0.90
 
 load:
   input_len: 512
