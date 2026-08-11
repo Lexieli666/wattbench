@@ -158,7 +158,52 @@ quality collapse and **cannot certify parity**.
 
 ### 5. Model-size frontier
 
-Not run.
+Every rung is AWQ int4, same serving flags, same 4 req/s of 512-in/128-out — so
+offered load is fixed at 512 tok/s and the only variable is model size. Size
+therefore does not buy throughput here; it spends power, latency and energy.
+
+| model | ctx | out tok/s | SLO met | TTFT p95 | ITL p95 | mean W | J/token |
+|---|---|---|---|---|---|---|---|
+| 1.5B | 4096 | 511.1 | 100% | 42.9 ms | 4.24 ms | 182.9 | 0.371 |
+| 3B | 4096 | 510.6 | 100% | 58.9 ms | 12.5 ms | 227.0 | 0.461 |
+| 7B | 4096 | 509.8 | 100% | 111.3 ms | 9.40 ms | 319.7 | 0.650 |
+| 14B | 4096 | 507.7 | 100% | 368.4 ms | 100.3 ms | 369.2 | 0.752 |
+| 32B | 4096 | — | — | — | — | — | — |
+| 32B | 1024 | **109.9** | **0.5%** | **693 s** | 23.4 ms | 370.7 | **3.40** |
+
+**Everything up to 14B holds the load; 32B does not come close.** From 1.5B to
+14B, 9.3× the parameters costs only **2.0× the energy per token** (0.371 →
+0.752 J) — sublinear, because at this load fixed overhead dominates. Latency is
+what degrades first: ITL p95 rises **23.7×** over the same range while energy
+merely doubles.
+
+**32B is a different regime, not a further step along the curve.** At its
+reduced 1024-token context it serves 109.9 of the 512 tok/s offered, meets the
+SLO on 0.5% of requests, and burns **4.5× the energy per token of 14B**. Its
+ITL p95 is 23.4 ms — *lower* than 14B's. Decode is not the problem. The KV
+cache runs at 86% mean and 100% peak, 388 requests are preempted and recomputed,
+and the queue reaches 626 deep. The collapse is entirely queueing.
+
+**Two results that contradict expectations, reported rather than smoothed:**
+
+- **32B's servable context is not a number, it is a coin flip.** 18.14 GiB of
+  int4 weights leaves too little of the 21.6 GiB budget for KV, but *how much*
+  too little moves between identical invocations: vLLM's CUDA-graph memory
+  estimate measured 0.62, 0.86, 1.59 and 7.34 GiB on the same flags. So 4096
+  failed, then served, then failed; 1024 completed a full 800-prompt run, then
+  failed in a later probe; only 512 served on every attempt. Reporting a single
+  "longest servable context" for 32B would be false precision, so this reports
+  the distribution instead. Every attempt is committed in `results/raw/`.
+- **The 4090's model-size ceiling at this load sits between 14B and 32B**, and
+  it is set by memory, not by compute. 14B still serves 32,768-token context —
+  the same architectural cap the 7B rung hits in both precisions — while 32B
+  cannot reliably hold 1024.
+
+Full table, including the failed rungs and the root cause read from each
+server's own log: [`results/tables/e3_frontier.md`](results/tables/e3_frontier.md).
+
+No GSM8K guard was run for these checkpoints, so this section makes **no claim
+about output quality** at any size — only about what the card can serve.
 
 ## Run-to-run variance — the bar every other number carries
 
@@ -179,7 +224,9 @@ VIRTUAL_ENV=~/wattbench-venv uv pip install vllm pyyaml matplotlib
 ./fetch_models.sh                     # pre-fetch weights (hours, at ~3 MB/s)
 ./baseline.sh E1-chat                 # fresh idle-power baseline, GPU quiet
 ./sweep.sh --series E1-chat configs/e1/chat/*.yaml
-./analyze.py all                      # tables + plots into results/
+# The other scripts resolve the venv themselves; this one runs on whatever
+# python3 is on PATH, and the system one has no matplotlib.
+~/wattbench-venv/bin/python ./analyze.py all   # tables + plots into results/
 ```
 
 `run.sh` takes one config and produces one raw result; it reuses a running vLLM
