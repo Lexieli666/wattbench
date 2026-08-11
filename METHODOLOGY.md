@@ -296,6 +296,38 @@ Both figures are reported everywhere:
 Neither is "the" answer; the raw figure drives the cost model, because an owner
 pays for the idle floor too.
 
+#### Known limitation: the idle *mean* is not a robust statistic on this machine
+
+Measured 2026-08-11, across all ten committed baselines. Idle draw here is
+bimodal: a stable quiescent floor, plus brief excursions to ~62 W from an
+intermittent consumer outside this benchmark (the card also drives the Windows
+desktop). **Every** baseline has a median between 18.7 and 22.2 W across three
+days. The mean is decided by how many excursions happen to land in the 130 s
+window:
+
+| | baselines | samples > 40 W | mean W | median W |
+|---|---|---|---|---|
+| quiet window | E0E1, E0, E1, E2 ×2 | 0 % | 18.8–20.6 | 18.7–20.6 |
+| excursions present | E0-sat, E3, E3-clean, m1-smoke, E1-dltest | 1.6–16.9 % | 21.5–27.9 | 20.3–22.2 |
+
+Two consequences, both stated rather than smoothed:
+
+- Re-measuring does not reliably fix it. The E3 baseline was re-measured
+  specifically to replace a suspect one, and came back **worse** — 27.878 W
+  against 24.558 W — despite a *lower* median (20.41 vs 22.16 W).
+- The 25 % utilisation guard does not catch it, and cannot. On this machine
+  `util_gpu_pct` reads 19–41 % at a genuinely quiescent ~20 W with SM clocks
+  pinned at their 210 MHz floor, because desktop compositing registers as
+  utilisation while costing almost no power. Utilisation is the wrong proxy
+  here; power is the signal.
+
+This affects only **incremental** J/token. Raw J/token, the E3 frontier table,
+and the E5 cost model are all baseline-independent and unaffected. Whether
+idle subtraction should use the median instead of the mean — or require a
+window with zero samples above 40 W — is an open decision, not settled here,
+because it would change every incremental figure in E0–E5 and the M3 energy
+validation along with them.
+
 ### Throttle detection
 
 Each run reports the fraction of samples in `sw_power_cap`, `hw_thermal_slowdown`,
