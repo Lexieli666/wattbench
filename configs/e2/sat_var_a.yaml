@@ -1,0 +1,11 @@
+# Saturated-regime variance. E0's bar was measured at 4 req/s, unsaturated,
+# where throughput is pinned by the arrival schedule. Past saturation behaviour
+# is driven by preemption dynamics and is visibly noisier -- an E1-vs-E2 repeat
+# of the r16 point differed by 22% on throughput. Claims about saturated points
+# need a bar measured in that regime, so this is the reference config repeated
+# three times at 16 req/s within one session.
+extends: ../_base_7b_bf16.yaml
+experiment: E0-sat
+point_id: e0_sat_7b_bf16_chat_r16_a
+description: saturated-regime variance repeat A (16 req/s)
+load: {input_len: 512, output_len: 128, request_rate: 16, num_prompts: 2400}

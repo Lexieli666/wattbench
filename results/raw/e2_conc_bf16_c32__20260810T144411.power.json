@@ -1,0 +1,65 @@
+{
+  "n_samples": 73,
+  "t_start": "2026-08-10T14:44:30.485000",
+  "t_end": "2026-08-10T14:45:08.111000",
+  "wall_s": 37.626,
+  "integrated_s": 37.626,
+  "sample_gaps": 0,
+  "sample_gap_s_total": 0.0,
+  "sample_interval_s": {
+    "p50": 0.504,
+    "p95": 0.616,
+    "max": 0.659
+  },
+  "energy_j": 12103.18,
+  "mean_power_w": 321.671,
+  "mean_power_w_arithmetic": 330.094,
+  "power_w": {
+    "min": 20.45,
+    "p50": 365.44,
+    "p95": 454.93,
+    "max": 461.22
+  },
+  "power_limit_w_observed": [
+    450.0
+  ],
+  "clock_sm_mhz": {
+    "min": 210.0,
+    "p50": 2655.0,
+    "max": 2655.0
+  },
+  "temp_c": {
+    "min": 51.0,
+    "p50": 72.0,
+    "max": 75.0
+  },
+  "util_gpu_pct_mean": 85.2,
+  "mem_used_mib_max": 23735.0,
+  "throttle": {
+    "sw_power_cap_samples": 24,
+    "hw_thermal_samples": 0,
+    "sw_thermal_samples": 0,
+    "hw_slowdown_samples": 0,
+    "sw_power_cap_frac": 0.3288,
+    "thermal_any_frac": 0.0,
+    "busy_clock_p95_mhz": 2655.0,
+    "busy_clock_sag_frac": 0.0161,
+    "n_busy_samples": 62
+  },
+  "crosscheck": {
+    "naive_energy_j": 12420.11,
+    "abs_rel_diff": 0.02619,
+    "left_riemann_j": 12009.96,
+    "right_riemann_j": 12196.41,
+    "discretisation_bound": 0.0077
+  },
+  "flags": [],
+  "idle_baseline_w": 18.807,
+  "idle_energy_j": 707.63,
+  "incremental_energy_j": 11395.55,
+  "source_log": "e2_conc_bf16_c32__20260810T144411.power.csv",
+  "window": {
+    "start": "2026-08-10T14:44:30.326754643",
+    "end": "2026-08-10T14:45:08.332471250"
+  }
+}
