@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "point_id": "limits_context_awq",
+  "experiment": "E2-limits",
+  "status": "ok",
+  "description": "Longest servable context: largest --max-model-len that both loads and completes one request, walking a fixed ladder upward and stopping at the first failure.",
+  "config": {
+    "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "label": "awq",
+    "gpu_memory_utilization": 0.9
+  },
+  "model_revision": {
+    "requested_revision": null,
+    "resolved_commit": "b25037543e9394b818fdfca67ab2a00ecc7dd641",
+    "source": "hf_cache_refs"
+  },
+  "provenance": {
+    "captured_at": "2026-08-10T15:00:03.751315-07:00",
+    "host": {
+      "hostname": "yutongzhao",
+      "kernel": "6.6.114.1-microsoft-standard-WSL2",
+      "os": "Ubuntu 26.04 LTS",
+      "cpu": "Intel(R) Core(TM) i9-14900KF",
+      "ram_gib_total": "31"
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 4090",
+      "driver_version": "595.95",
+      "memory.total": "24564 MiB",
+      "power.limit": "450.00 W",
+      "power.max_limit": "450.00 W",
+      "power.min_limit": "150.00 W",
+      "persistence_mode": "Enabled",
+      "pcie.link.gen.current": "4",
+      "pcie.link.width.current": "16",
+      "clocks.max.sm": "3105 MHz",
+      "clocks.max.mem": "10501 MHz",
+      "cuda_version_smi": "13.2"
+    },
+    "stack": {
+      "python": "3.12.13",
+      "vllm": "0.26.0",
+      "torch": "2.11.0",
+      "transformers": "5.14.1",
+      "flashinfer": "0.6.14",
+      "xformers": null,
+      "torch_cuda": "13.0"
+    },
+    "harness_git": {
+      "commit": "6bc916cd350cb87619031fb4638f84b5ba2bfa4b",
+      "branch": "main",
+      "dirty": true,
+      "dirty_files": [
+        "results/idle/idle__E2__20260810T135453.json",
+        "results/idle/idle__E2__20260810T135453.json.samples.csv",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.json",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.kv.csv",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.kv.json",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.power.csv",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.power.json",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.server.log",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.json",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.kv.csv",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.kv.json",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.power.csv",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.power.json",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.server.log",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.json",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.kv.csv",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.kv.json",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.power.csv",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.power.json",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.server.log"
+      ]
+    },
+    "env": {
+      "HF_HOME": "/home/yzhao/.cache/huggingface",
+      "VLLM_USE_V2_MODEL_RUNNER": "0",
+      "VLLM_USE_FLASHINFER_SAMPLER": "0"
+    }
+  },
+  "metrics": {
+    "longest_servable_context": 32768,
+    "attempts": [
+      {
+        "max_model_len": 4096,
+        "served": true,
+        "kv_cache_tokens": "282,016",
+        "reported_concurrency": "Maximum concurrency for 4,096 tokens per request: 68.85x",
+        "error": null
+      },
+      {
+        "max_model_len": 8192,
+        "served": true,
+        "kv_cache_tokens": "273,808",
+        "reported_concurrency": "Maximum concurrency for 8,192 tokens per request: 33.42x",
+        "error": null
+      },
+      {
+        "max_model_len": 16384,
+        "served": true,
+        "kv_cache_tokens": "273,808",
+        "reported_concurrency": "Maximum concurrency for 16,384 tokens per request: 16.71x",
+        "error": null
+      },
+      {
+        "max_model_len": 32768,
+        "served": true,
+        "kv_cache_tokens": "273,840",
+        "reported_concurrency": "Maximum concurrency for 32,768 tokens per request: 8.36x",
+        "error": null
+      },
+      {
+        "max_model_len": 65536,
+        "served": false,
+        "kv_cache_tokens": null,
+        "reported_concurrency": null,
+        "error": "server exited during startup"
+      }
+    ]
+  }
+}

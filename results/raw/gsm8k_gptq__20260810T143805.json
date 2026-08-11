@@ -1,0 +1,495 @@
+{
+  "schema_version": 1,
+  "point_id": "gsm8k_gptq",
+  "experiment": "E2-guard",
+  "status": "ok",
+  "description": "GSM8K exact-match guard, 50 items, greedy decoding, arm 'gptq'",
+  "run_started_at": "2026-08-10T14:36:41.531645-07:00",
+  "run_finished_at": "2026-08-10T14:38:04.013509-07:00",
+  "config": {
+    "model": "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4",
+    "label": "gptq",
+    "n_items": 50,
+    "seed": 0,
+    "max_tokens": 512,
+    "temperature": 0.0,
+    "prompt_template": "Solve this grade school math problem. Reason step by step, then give the final numeric answer on its own last line in the form:\n#### <number>\n\nProblem: {question}",
+    "endpoint": "/v1/chat/completions"
+  },
+  "model_revision": {
+    "requested_revision": null,
+    "resolved_commit": "e9c932ac1893a49ae0fc497ad6e1e86e2e39af20",
+    "source": "hf_cache_refs"
+  },
+  "provenance": {
+    "captured_at": "2026-08-10T14:38:04.013991-07:00",
+    "host": {
+      "hostname": "yutongzhao",
+      "kernel": "6.6.114.1-microsoft-standard-WSL2",
+      "os": "Ubuntu 26.04 LTS",
+      "cpu": "Intel(R) Core(TM) i9-14900KF",
+      "ram_gib_total": "31"
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 4090",
+      "driver_version": "595.95",
+      "memory.total": "24564 MiB",
+      "power.limit": "450.00 W",
+      "power.max_limit": "450.00 W",
+      "power.min_limit": "150.00 W",
+      "persistence_mode": "Enabled",
+      "pcie.link.gen.current": "4",
+      "pcie.link.width.current": "16",
+      "clocks.max.sm": "3105 MHz",
+      "clocks.max.mem": "10501 MHz",
+      "cuda_version_smi": "13.2"
+    },
+    "stack": {
+      "python": "3.12.13",
+      "vllm": "0.26.0",
+      "torch": "2.11.0",
+      "transformers": "5.14.1",
+      "flashinfer": "0.6.14",
+      "xformers": null,
+      "torch_cuda": "13.0"
+    },
+    "harness_git": {
+      "commit": "6bc916cd350cb87619031fb4638f84b5ba2bfa4b",
+      "branch": "main",
+      "dirty": true,
+      "dirty_files": [
+        "results/idle/idle__E2__20260810T135453.json",
+        "results/idle/idle__E2__20260810T135453.json.samples.csv",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.json",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.kv.csv",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.kv.json",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.power.csv",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.power.json",
+        "results/raw/e2_awq_7b_chat_r16__20260810T142536.server.log",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.json",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.kv.csv",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.kv.json",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.power.csv",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.power.json",
+        "results/raw/e2_awq_7b_chat_r2__20260810T141608.server.log",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.json",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.kv.csv",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.kv.json",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.power.csv",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.power.json",
+        "results/raw/e2_awq_7b_chat_r8__20260810T142116.server.log"
+      ]
+    },
+    "env": {}
+  },
+  "metrics": {
+    "n_items": 50,
+    "n_correct": 45,
+    "n_errors": 0,
+    "exact_match": 0.9,
+    "wall_s": 82.5
+  },
+  "items": [
+    {
+      "index": 2,
+      "gold": "70000",
+      "predicted": "195000",
+      "correct": false,
+      "error": null,
+      "response_tail": "itial cost.\n   - 150% of $130,000 is \\(1.5 \\times 130,000 = 195,000\\).\n\n3. **New Value of the House:**\n   - New value of the house = Initial cost + Increase in value\n   - New value of the house = $130,000 + $195,000 = $325,000.\n\n4. **Profit Calculation:**\n   - Profit is calculated as the new value of the house minus the total initial cost.\n   - Profit = $325,000 - $130,000 = $195,000.\n\n#### 195000"
+    },
+    {
+      "index": 28,
+      "gold": "25",
+      "predicted": "25",
+      "correct": true,
+      "error": null,
+      "response_tail": "tart.\n\n4. **Distance Between Stops**: To find out how many miles Henry traveled between his first and second stops, we need to subtract the distance of his first stop from the distance of his second stop.\n   \\[\n   \\text{Distance between stops} = 45 \\text{ miles} - 20 \\text{ miles} = 25 \\text{ miles}\n   \\]\n\nTherefore, the number of miles Henry traveled between his first and second stops is:\n#### 25"
+    },
+    {
+      "index": 82,
+      "gold": "623",
+      "predicted": "623",
+      "correct": true,
+      "error": null,
+      "response_tail": "ight is.\n     \\[\n     4 \\times 125 = 500 \\text{ pounds}\n     \\]\n   - Next, we subtract 2 pounds from this amount to get Alex's weight.\n     \\[\n     500 - 2 = 498 \\text{ pounds}\n     \\]\n\n2. **Calculate their combined weight:**\n   - Now that we know Grace weighs 125 pounds and Alex weighs 498 pounds, we can add these two amounts together.\n     \\[\n     125 + 498 = 623 \\text{ pounds}\n     \\]\n\n#### 623"
+    },
+    {
+      "index": 127,
+      "gold": "120",
+      "predicted": "120",
+      "correct": true,
+      "error": null,
+      "response_tail": "t's break it down step by step:\n\n1. **Determine how many friends Amy made:**\n   - We know that Amy made 20 more friends than Lily.\n   - Lily made 50 friends.\n   - Therefore, Amy made \\(50 + 20 = 70\\) friends.\n\n2. **Calculate the total number of friends both Lily and Amy have together:**\n   - Lily has 50 friends.\n   - Amy has 70 friends.\n   - Together, they have \\(50 + 70 = 120\\) friends.\n\n#### 120"
+    },
+    {
+      "index": 151,
+      "gold": "5",
+      "predicted": "5",
+      "correct": true,
+      "error": null,
+      "response_tail": "icycle tires\n   - Total tires = \\(10 + 9 + 1 = 20 \\text{ tires}\\).\n\n5. **Cost Per Tire**:\n   - Each tire costs 25 cents to inflate.\n\n6. **Total Cost**:\n   - Total cost = \\(20 \\text{ tires} \\times 25 \\text{ cents per tire} = 500 \\text{ cents}\\).\n\n7. **Convert Cents to Dollars**:\n   - Since 100 cents = 1 dollar,\n   - Total cost in dollars = \\(500 \\text{ cents} \\div 100 = 5 \\text{ dollars}\\).\n\n#### 5"
+    },
+    {
+      "index": 191,
+      "gold": "5",
+      "predicted": "5",
+      "correct": true,
+      "error": null,
+      "response_tail": "times 10 \\text{ ducks} = 35 \\text{ pounds}\\).\n\n2. **Convert the weekly requirement to a daily requirement:**\n   - There are 7 days in a week.\n   - To find out how much the flock needs per day, we divide the total weekly requirement by 7.\n   - So, \\(35 \\text{ pounds/week} \\div 7 \\text{ days/week} = 5 \\text{ pounds/day}\\).\n\nTherefore, the flock of ten ducks needs 5 pounds of insects per day.\n\n#### 5"
+    },
+    {
+      "index": 194,
+      "gold": "10",
+      "predicted": "10",
+      "correct": true,
+      "error": null,
+      "response_tail": "ifferent colors of crayons.\n   - Each crayon costs $2.\n   - Therefore, the total cost is \\(5 \\text{ crayons} \\times \\$2 \\text{ per crayon} = \\$10\\).\n\n2. **Calculate the amount of money Violetta will have left after the purchase:**\n   - Violetta has prepared $20 for the purchase.\n   - The total cost of the crayons is $10.\n   - Therefore, the change she will get is \\( \\$20 - \\$10 = \\$10 \\).\n\n#### 10"
+    },
+    {
+      "index": 202,
+      "gold": "100",
+      "predicted": "100",
+      "correct": true,
+      "error": null,
+      "response_tail": "tal amount of grapes produced per year is \\(10 \\text{ acres} \\times 5 \\text{ tons/acre} = 50 \\text{ tons}\\).\n\n2. **Calculate the number of barrels of wine produced from the grapes:**\n   - Each ton of grapes makes 2 barrels of wine.\n   - Therefore, the total number of barrels of wine produced from 50 tons of grapes is \\(50 \\text{ tons} \\times 2 \\text{ barrels/ton} = 100 \\text{ barrels}\\).\n\n#### 100"
+    },
+    {
+      "index": 206,
+      "gold": "860",
+      "predicted": "860",
+      "correct": true,
+      "error": null,
+      "response_tail": "lometers.\n- He does this for 3 weeks.\n\nFirst, find the total distance per week:\n\\[ 2 \\text{ rides/week} \\times 60 \\text{ km/ride} = 120 \\text{ km/week} \\]\n\nNow, multiply by the number of weeks:\n\\[ 120 \\text{ km/week} \\times 3 \\text{ weeks} = 360 \\text{ km} \\]\n\n**Step 3: Add the distances from both periods to get the total distance.**\n\\[ 500 \\text{ km} + 360 \\text{ km} = 860 \\text{ km} \\]\n\n#### 860"
+    },
+    {
+      "index": 285,
+      "gold": "21",
+      "predicted": "21",
+      "correct": true,
+      "error": null,
+      "response_tail": "mine Ann's current age**: Ann is currently 9 years old.\n\n2. **Calculate her brother's current age**: Her brother is twice her age. So, we multiply Ann's age by 2.\n   \\[\n   \\text{Brother's current age} = 9 \\times 2 = 18\n   \\]\n\n3. **Find out how old her brother will be in 3 years**: To find this, we add 3 years to his current age.\n   \\[\n   \\text{Brother's age in 3 years} = 18 + 3 = 21\n   \\]\n\n#### 21"
+    },
+    {
+      "index": 286,
+      "gold": "90",
+      "predicted": "90",
+      "correct": true,
+      "error": null,
+      "response_tail": "- Total value from dimes = \\( 2 \\times 10 \\) cents = 20 cents.\n\n3. **Calculate the total amount of money Kelly has:**\n   - Total value from quarters + Total value from dimes = 125 cents + 20 cents = 145 cents.\n\n4. **Subtract the cost of the can of pop from the total amount of money Kelly has:**\n   - Cost of the can of pop = 55 cents.\n   - Remaining cents = 145 cents - 55 cents = 90 cents.\n\n#### 90"
+    },
+    {
+      "index": 300,
+      "gold": "78",
+      "predicted": "78",
+      "correct": true,
+      "error": null,
+      "response_tail": ".\n   - Total exercise time on Monday and Sunday = 16 minutes + 23 minutes = 39 minutes.\n\n2. **Calculate the exercise time for Tuesday:**\n   - Peter wants to exercise for twice the amount of time he did on Monday and Sunday combined.\n   - Therefore, the exercise time for Tuesday = 2 \u00d7 39 minutes = 78 minutes.\n\nSo, the number of minutes Peter has to exercise on Tuesday to reach his goal is:\n\n#### 78"
+    },
+    {
+      "index": 418,
+      "gold": "40",
+      "predicted": "40",
+      "correct": true,
+      "error": null,
+      "response_tail": "'s locker is \\( \\frac{1}{4} \\) as big as Zack's locker.\n   - Peter's locker is 5 cubic inches.\n   - Therefore, Zack's locker is \\( 5 \\times 4 = 20 \\) cubic inches.\n\n2. **Determine the size of Timothy's locker:**\n   - We know that Zack's locker is half as big as Timothy's locker.\n   - Zack's locker is 20 cubic inches.\n   - Therefore, Timothy's locker is \\( 20 \\times 2 = 40 \\) cubic inches.\n\n#### 40"
+    },
+    {
+      "index": 447,
+      "gold": "5",
+      "predicted": "5",
+      "correct": true,
+      "error": null,
+      "response_tail": " Marcy starts with 225 points.\n4. **Points Scored by Marcy**: Marcy scores an additional 10 points.\n   - To find Marcy's new total, we add these points to her initial score:\n     \\[\n     225 + 10 = 235\n     \\]\n5. **Comparing Scores**: Now we need to determine by how many points Joey is ahead of Marcy.\n   - Subtract Marcy's new total from Joey's new total:\n     \\[\n     240 - 235 = 5\n     \\]\n\n#### 5"
+    },
+    {
+      "index": 499,
+      "gold": "10",
+      "predicted": "10",
+      "correct": true,
+      "error": null,
+      "response_tail": "need to find the number of guests \\( n \\) where the costs are equal. Therefore, we set the two expressions equal to each other:\n\\[ 200 + 5n = 25n \\]\n\nNext, we solve for \\( n \\):\n1. Subtract \\( 5n \\) from both sides:\n   \\[ 200 = 20n \\]\n2. Divide both sides by 20:\n   \\[ n = \\frac{200}{20} \\]\n   \\[ n = 10 \\]\n\nTherefore, the number of guests necessary for the two venues to be equal in cost is:\n#### 10"
+    },
+    {
+      "index": 513,
+      "gold": "300",
+      "predicted": "300",
+      "correct": true,
+      "error": null,
+      "response_tail": "clothes.\n\n4. **Spending on CDs**:\n   - She then spends 25% of the remaining $400 on CDs.\n   - To find 25% of $400, we calculate \\( 400 \\times \\frac{25}{100} = 400 \\times 0.25 = 100 \\).\n   - So, she spends $100 on CDs.\n\n5. **Remaining Money After Buying CDs**:\n   - Subtract the amount spent on CDs from the remaining amount: \\( 400 - 100 = 300 \\).\n   - Julie has $300 left after buying CDs.\n\n#### 300"
+    },
+    {
+      "index": 530,
+      "gold": "36",
+      "predicted": "44",
+      "correct": false,
+      "error": null,
+      "response_tail": "r the extra hour spent in one week:**\n   - He spent 6 hours in one week.\n   - This means an additional \\(6 \\text{ hours} - 4 \\text{ hours (regular)} = 2 \\text{ extra hours}\\).\n\n4. **Add all these together to get the total hours:**\n   - Regular hours: 32 hours\n   - Extra hours from two consecutive weeks: 10 hours\n   - Extra hour from one week: 2 hours\n\n   Total hours = \\(32 + 10 + 2 = 44\\)\n\n#### 44"
+    },
+    {
+      "index": 533,
+      "gold": "300",
+      "predicted": "300",
+      "correct": true,
+      "error": null,
+      "response_tail": "$700 = \\$2,400\n   \\]\n\n4. **Simplify the equation:**\n   \\[\n   \\$1,800 + 2x = \\$2,400\n   \\]\n\n5. **Solve for \\( x \\):**\n   - Subtract $1,800 from both sides to isolate the term with \\( x \\):\n   \\[\n   2x = \\$2,400 - \\$1,800\n   \\]\n   \\[\n   2x = \\$600\n   \\]\n   - Divide both sides by 2 to solve for \\( x \\):\n   \\[\n   x = \\frac{\\$600}{2} = \\$300\n   \\]\n\nTherefore, the cost of one monitor is \\(\\boxed{300}\\)."
+    },
+    {
+      "index": 577,
+      "gold": "40",
+      "predicted": "40",
+      "correct": true,
+      "error": null,
+      "response_tail": " = 280\n   \\]\n\n2. **Count the total number of days.**\n   - The week has 7 days.\n\n3. **Calculate the average number of birds seen per day.**\n   - To find the average, divide the total number of birds by the number of days.\n   \\[\n   \\text{Average} = \\frac{\\text{Total number of birds}}{\\text{Number of days}} = \\frac{280}{7}\n   \\]\n\n4. **Perform the division.**\n   \\[\n   \\frac{280}{7} = 40\n   \\]\n\n#### 40"
+    },
+    {
+      "index": 621,
+      "gold": "3000",
+      "predicted": "3000",
+      "correct": true,
+      "error": null,
+      "response_tail": " 4 \\text{ hours/week}\\).\n\n3. **Calculate the total number of hours over 6 weeks:**\n   - Since there are 4 hours per week and he goes for 6 weeks, the total hours are \\(4 \\text{ hours/week} \\times 6 \\text{ weeks} = 24 \\text{ hours}\\).\n\n4. **Calculate the total cost:**\n   - The cost per hour is $125.\n   - Therefore, the total cost is \\(24 \\text{ hours} \\times \\$125/\\text{hour} = \\$3000\\).\n\n#### 3000"
+    },
+    {
+      "index": 635,
+      "gold": "4",
+      "predicted": "10",
+      "correct": false,
+      "error": null,
+      "response_tail": "no specific limit given by the cost per class, the number of classes Manny can miss is theoretically unlimited. However, since the question asks for a specific number and based on the conditions provided, the answer would be:\n\n#### 10\n\nThis means that as long as the cost per class remains at or below $10, Manny can miss all 10 classes and still have the classes covered under the initial agreement."
+    },
+    {
+      "index": 647,
+      "gold": "10",
+      "predicted": "10",
+      "correct": true,
+      "error": null,
+      "response_tail": "}{4 \\text{ feet/hour}} = 6 \\text{ hours} \\).\n\n3. **Calculate the time to dig through the clay:**\n   - There are 8 feet of clay.\n   - At 2 feet per hour, the time to dig through the clay is \\( \\frac{8 \\text{ feet}}{2 \\text{ feet/hour}} = 4 \\text{ hours} \\).\n\n4. **Add the times together:**\n   - Total time = time through soil + time through clay\n   - Total time = 6 hours + 4 hours = 10 hours\n\n#### 10"
+    },
+    {
+      "index": 676,
+      "gold": "240",
+      "predicted": "240",
+      "correct": true,
+      "error": null,
+      "response_tail": "0 = \\frac{2 \\times 720}{3} = \\frac{1440}{3} = 480 \\).\n   - So, Frances's investment is $480.\n\n5. **Remaining Amount After Frances's Investment**:\n   - Subtract Frances's investment from the remaining amount: \\( 720 - 480 = 240 \\).\n\n6. **Skyler's Investment**:\n   - The remaining amount after both Dylan and Frances have invested is Skyler's investment.\n   - So, Skyler's investment is $240.\n\n#### 240"
+    },
+    {
+      "index": 682,
+      "gold": "80",
+      "predicted": "80",
+      "correct": true,
+      "error": null,
+      "response_tail": "equation: \\( 1.5x + 20 = 140 \\).\n\n5. **Solve for \\( x \\):**\n   - Subtract 20 from both sides of the equation to isolate the term with \\( x \\):\n     \\[\n     1.5x + 20 - 20 = 140 - 20\n     \\]\n     \\[\n     1.5x = 120\n     \\]\n   - Divide both sides by 1.5 to solve for \\( x \\):\n     \\[\n     x = \\frac{120}{1.5}\n     \\]\n     \\[\n     x = 80\n     \\]\n\nSo, the original length of the dress was 80 cm.\n\n#### 80"
+    },
+    {
+      "index": 724,
+      "gold": "18",
+      "predicted": "18",
+      "correct": true,
+      "error": null,
+      "response_tail": "2 people = \\( \\frac{3}{4} \\times 12 = 9 \\) slices\n   - Total slices eaten by 2 people = 2 \u00d7 9 = 18 slices\n\n6. **Total slices eaten:**\n   - Total slices eaten = Slices eaten by 3 people + Slices eaten by 2 people\n   - Total slices eaten = 24 + 18 = 42 slices\n\n7. **Slices of pizza left:**\n   - Total slices left = Total slices - Total slices eaten\n   - Total slices left = 60 - 42 = 18 slices\n\n#### 18"
+    },
+    {
+      "index": 733,
+      "gold": "5",
+      "predicted": "5",
+      "correct": true,
+      "error": null,
+      "response_tail": "and his 3 younger siblings make a total of 4 people.\n\nNext, we need to divide the total amount of money by the number of people to find out how much each person gets.\n\n3. **Division Calculation**:\n   \\[\n   \\text{Amount per person} = \\frac{\\text{Total Money}}{\\text{Number of People}} = \\frac{20}{4}\n   \\]\n\n4. **Perform the Division**:\n   \\[\n   \\frac{20}{4} = 5\n   \\]\n\nSo, each person gets $5.\n\n#### 5"
+    },
+    {
+      "index": 788,
+      "gold": "100",
+      "predicted": "100",
+      "correct": true,
+      "error": null,
+      "response_tail": "300}{2} = 150\n   \\]\n\n3. **Calculate how much more money John needs**: We know that John already has $50. To find out how much more he needs, we subtract the amount he has from the total cost minus the school's contribution.\n   \\[\n   \\text{Total needed} = 300 - 150 = 150\n   \\]\n   \\[\n   \\text{Amount John still needs} = 150 - 50 = 100\n   \\]\n\nSo, the final amount of money John is missing is:\n\n#### 100"
+    },
+    {
+      "index": 816,
+      "gold": "4500",
+      "predicted": "4500",
+      "correct": true,
+      "error": null,
+      "response_tail": "ost for goats = 3 \u00d7 $500 = $1500\n\n2. **Calculate the total cost of the cows:**\n   - John buys 2 cows.\n   - Each cow costs $1500.\n   - Total cost for cows = Number of cows \u00d7 Cost per cow\n   - Total cost for cows = 2 \u00d7 $1500 = $3000\n\n3. **Calculate the total amount spent:**\n   - Total amount spent = Total cost for goats + Total cost for cows\n   - Total amount spent = $1500 + $3000 = $4500\n\n#### 4500"
+    },
+    {
+      "index": 829,
+      "gold": "14000",
+      "predicted": "14000",
+      "correct": true,
+      "error": null,
+      "response_tail": " First week: 8,000 bars\n   - Second week: 4,000 bars\n   - Third week: 24,000 bars\n   - Total for first three weeks: \\( 8,000 + 4,000 + 24,000 = 36,000 \\) bars\n\n6. **Fourth Week Production:**\n   - Subtract the total production of the first three weeks from the monthly total.\n   - \\( 50,000 - 36,000 = 14,000 \\) bars\n\nTherefore, the number of chocolate bars produced in the fourth week is:\n\n#### 14000"
+    },
+    {
+      "index": 861,
+      "gold": "30",
+      "predicted": "30",
+      "correct": true,
+      "error": null,
+      "response_tail": "ns three times the number of badges as Claire in the same time frame.\n   - Since Claire earns 12 badges in one year, Wendy will earn \\(12 \\times 3 = 36\\) badges in one year.\n\n4. **Comparing Wendy and Amber's badges:**\n   - Wendy earns 36 badges in one year.\n   - Amber earns 6 badges in one year.\n   - The difference in the number of badges earned between Wendy and Amber is \\(36 - 6 = 30\\).\n\n#### 30"
+    },
+    {
+      "index": 889,
+      "gold": "15",
+      "predicted": "15",
+      "correct": true,
+      "error": null,
+      "response_tail": "es 10 \\text{ petals/daisy} = 40 \\text{ petals}\\).\n\n3. **Find the difference in the number of petals between the daisies and the orchids:**\n   - The total number of petals from the daisies is 40.\n   - The total number of petals from the orchids is 25.\n   - The difference is \\(40 \\text{ petals} - 25 \\text{ petals} = 15 \\text{ petals}\\).\n\nSo, the daisies have 15 more petals than the orchids.\n\n#### 15"
+    },
+    {
+      "index": 906,
+      "gold": "10",
+      "predicted": "10",
+      "correct": true,
+      "error": null,
+      "response_tail": "d shoe boxes used: \\(\\frac{1}{3}\\) of 9\n\n3. **Calculate Red Shoe Boxes Used:**\n   - \\(\\frac{1}{3} \\times 9 = 3\\)\n\n4. **Subtract Used Shoe Boxes from Initial Count:**\n   - Blue shoe boxes left: \\(7 - 3 = 4\\)\n   - Red shoe boxes left: \\(9 - 3 = 6\\)\n\n5. **Total Shoe Boxes Left:**\n   - Total blue shoe boxes left: 4\n   - Total red shoe boxes left: 6\n\nSo, the final number of shoe boxes left is:\n\n#### 10"
+    },
+    {
+      "index": 966,
+      "gold": "48",
+      "predicted": "48",
+      "correct": true,
+      "error": null,
+      "response_tail": "\\text{ (from office)} + 48 \\text{ (at home)} = 66 \\text{ brownies}\n     \\]\n   \n5. **Brownies Eaten During the Party:**\n   - During the party, 1 1/2 dozen brownies were eaten.\n   - One and a half dozen is equal to 18 brownies.\n   \n6. **Brownies Left Over:**\n   - Subtracting the brownies eaten from the total:\n     \\[\n     66 \\text{ (total)} - 18 \\text{ (eaten)} = 48 \\text{ brownies}\n     \\]\n\n#### 48"
+    },
+    {
+      "index": 976,
+      "gold": "540",
+      "predicted": "465",
+      "correct": false,
+      "error": null,
+      "response_tail": "s} \\times \\$15/\\text{box} = \\$90\\).\n  - Total for Saturday: \\(\\$60 + \\$90 = \\$150\\).\n\n- **Sunday:**\n  - Gingerbread: \\(15 \\text{ boxes} \\times \\$6/\\text{box} = \\$90\\).\n  - Apple pie: \\(15 \\text{ boxes} \\times \\$15/\\text{box} = \\$225\\).\n  - Total for Sunday: \\(\\$90 + \\$225 = \\$315\\).\n\n**Step 3: Calculate the total earnings over the two days.**\n\n- Total earnings: \\(\\$150 + \\$315 = \\$465\\).\n\n#### 465"
+    },
+    {
+      "index": 995,
+      "gold": "12",
+      "predicted": "12",
+      "correct": true,
+      "error": null,
+      "response_tail": "*Total Money Given by Parents**: Adding the money given by both parents, we get \\(6 + 12 = 18\\) dollars.\n\n5. **Money Adam Had to Contribute**: To find out how much Adam had to contribute from his savings, we subtract the total amount given by his parents from the cost of the trousers. So, \\(30 - 18 = 12\\) dollars.\n\nTherefore, the amount of money Adam had to contribute from his savings is:\n\n#### 12"
+    },
+    {
+      "index": 1010,
+      "gold": "5",
+      "predicted": "5",
+      "correct": true,
+      "error": null,
+      "response_tail": "lyn runs \\(\\frac{14}{2} = 7\\) laps in one hour.\n\n4. **Quinn's Laps:**\n   - Quinn can run 2 fewer laps than Shaelyn.\n   - Therefore, Quinn runs \\(7 - 2 = 5\\) laps in one hour.\n\n5. **Difference Between Bethany's and Quinn's Laps:**\n   - To find how many more laps Bethany can run compared to Quinn, we subtract Quinn's laps from Bethany's laps.\n   - Therefore, the difference is \\(10 - 5 = 5\\).\n\n#### 5"
+    },
+    {
+      "index": 1033,
+      "gold": "2",
+      "predicted": "2",
+      "correct": true,
+      "error": null,
+      "response_tail": "\n\n4. **Calculate the net earnings after expenses:**\n   - Subtract the total parking expenses from the total earnings.\n   \\[\n   45 \\text{ dollars} - 9 \\text{ dollars} = 36 \\text{ dollars}\n   \\]\n\n5. **Calculate the hourly rate after expenses:**\n   - Divide the net earnings by the total number of hours worked.\n   \\[\n   \\frac{36 \\text{ dollars}}{18 \\text{ hours}} = 2 \\text{ dollars/hour}\n   \\]\n\n#### 2"
+    },
+    {
+      "index": 1047,
+      "gold": "10",
+      "predicted": "10",
+      "correct": true,
+      "error": null,
+      "response_tail": "ft(\\frac{x}{2}\\right) = 2(19) \\]\n\\[ 4x + 8 + x = 38 \\]\n\\[ 5x + 8 = 38 \\]\n\nNext, isolate \\( x \\) by subtracting 8 from both sides:\n\n\\[ 5x = 30 \\]\n\nThen, divide both sides by 5:\n\n\\[ x = 6 \\]\n\nSo, Rory retrieved 6 balls in the second set. Now, we can find the number of balls in the first set:\n\n\\[ x + 4 = 6 + 4 = 10 \\]\n\nTherefore, the number of tennis balls Rory retrieved in the first set is:\n\n#### 10"
+    },
+    {
+      "index": 1067,
+      "gold": "245",
+      "predicted": "24500",
+      "correct": false,
+      "error": null,
+      "response_tail": "coupons.\n   - Total cost = \\(3500\\) cents + \\(21000\\) cents.\n   - Total cost = \\(24500\\) cents.\n\n5. **Convert the total cost from cents to dollars (if necessary):**\n   - Since 100 cents = 1 dollar, we can convert 24500 cents to dollars by dividing by 100.\n   - \\(24500 \\div 100 = 245\\) dollars.\n\nHowever, the question asks for the total cost in cents, so we will keep the answer in cents.\n\n#### 24500"
+    },
+    {
+      "index": 1090,
+      "gold": "72",
+      "predicted": "72",
+      "correct": true,
+      "error": null,
+      "response_tail": "d child is 5 inches shorter than the second child.\n   - Therefore, the third child's height is:\n     \\[\n     74 \\text{ inches} - 5 \\text{ inches} = 69 \\text{ inches}\n     \\]\n\n4. **Fourth Child's Height:**\n   - The fourth child is 3 inches taller than the third child.\n   - Therefore, the fourth child's height is:\n     \\[\n     69 \\text{ inches} + 3 \\text{ inches} = 72 \\text{ inches}\n     \\]\n\n#### 72"
+    },
+    {
+      "index": 1123,
+      "gold": "105",
+      "predicted": "105",
+      "correct": true,
+      "error": null,
+      "response_tail": "Elijah's dogs:**\n   - Elijah has two dogs, one weighing 15 pounds and the other weighing 30 pounds.\n   - The total weight of Elijah's dogs is \\( 15 + 30 = 45 \\) pounds.\n\n4. **Calculate the total weight of both Elijah's and Kory's dogs:**\n   - Kory's dog weighs 60 pounds.\n   - Elijah's dogs together weigh 45 pounds.\n   - The total weight of both sets of dogs is \\( 60 + 45 = 105 \\) pounds.\n\n#### 105"
+    },
+    {
+      "index": 1131,
+      "gold": "96",
+      "predicted": "96",
+      "correct": true,
+      "error": null,
+      "response_tail": " 16 \\text{ logs} \\).\n\n3. **Determine the number of planks from each log:**\n   - From each log, John cuts 5 planks.\n   - Total number of planks = \\( 16 \\text{ logs} \\times 5 \\text{ planks/log} = 80 \\text{ planks} \\).\n\n4. **Calculate the total earnings from selling the planks:**\n   - Each plank is sold for $1.2.\n   - Total earnings = \\( 80 \\text{ planks} \\times \\$1.2/\\text{plank} = \\$96 \\).\n\n#### 96"
+    },
+    {
+      "index": 1146,
+      "gold": "16",
+      "predicted": "16",
+      "correct": true,
+      "error": null,
+      "response_tail": " of 20 = 0.60 * 20 = 12 rocks.\n\n3. **Calculate the revenue from selling the rocks:**\n   - Each rock is sold for $7.\n   - Revenue = Number of rocks sold * Selling price per rock = 12 * $7 = $84.\n\n4. **Calculate the cost of buying the rocks:**\n   - Cost = Number of rocks bought * Cost per rock = 20 * $5 = $100.\n\n5. **Calculate the total loss:**\n   - Loss = Cost - Revenue = $100 - $84 = $16.\n\n#### 16"
+    },
+    {
+      "index": 1194,
+      "gold": "1200",
+      "predicted": "1200",
+      "correct": true,
+      "error": null,
+      "response_tail": "t of blood in one shark:**\n   - A shark has three times as much blood as a whale.\n   - Therefore, the amount of blood in one shark = \\(3 \\times 40\\) gallons.\n   - \\(3 \\times 40 = 120\\) gallons.\n\n3. **Calculate the total amount of blood in ten sharks:**\n   - If one shark has 120 gallons of blood, then ten sharks would have \\(10 \\times 120\\) gallons.\n   - \\(10 \\times 120 = 1200\\) gallons.\n\n#### 1200"
+    },
+    {
+      "index": 1232,
+      "gold": "15",
+      "predicted": "15",
+      "correct": true,
+      "error": null,
+      "response_tail": "*\n   - Eve originally had 20 pieces of pomelos.\n   - After giving some away, she is left with \\(\\frac{1}{4}\\) of the original amount.\n   - So, the number of pomelos Eve has left is \\(20 \\times \\frac{1}{4} = 5\\).\n\n2. **Calculate how many pomelos Eve gave away:**\n   - Eve started with 20 pomelos and now has 5 pomelos left.\n   - Therefore, the number of pomelos given away is \\(20 - 5 = 15\\).\n\n#### 15"
+    },
+    {
+      "index": 1251,
+      "gold": "30",
+      "predicted": "30",
+      "correct": true,
+      "error": null,
+      "response_tail": "side: \\(\\frac{5}{2} = 2.5\\) minutes\n   - Fifth side: \\(\\frac{5}{2} = 2.5\\) minutes\n\nNow, we sum up the time taken for all six sides:\n\n- First side: 5 minutes\n- Second side: 10 minutes\n- Third side: 10 minutes\n- Fourth side: 2.5 minutes\n- Fifth side: 2.5 minutes\n\nAdding these times together:\n\n\\[ 5 + 10 + 10 + 2.5 + 2.5 = 30 \\]\n\nSo, the total time it takes John to solve the Rubik's cube is:\n\n#### 30"
+    },
+    {
+      "index": 1253,
+      "gold": "120",
+      "predicted": "120",
+      "correct": true,
+      "error": null,
+      "response_tail": "n a day by the time it takes to handle one call.\n   \\[\n   \\frac{360 \\text{ minutes}}{15 \\text{ minutes/call}} = 24 \\text{ calls/day}\n   \\]\n\n5. **Calculate the total number of calls Tim handles in a 5-day work week:**\n   - Multiply the number of calls he handles in one day by the number of days in his work week.\n   \\[\n   24 \\text{ calls/day} \\times 5 \\text{ days} = 120 \\text{ calls}\n   \\]\n\n#### 120"
+    },
+    {
+      "index": 1266,
+      "gold": "147",
+      "predicted": "147",
+      "correct": true,
+      "error": null,
+      "response_tail": "daily consumption = Consumption by German Shepherds + Consumption by Bulldogs.\n   - Total daily consumption = \\( 15 \\text{ kg/day} + 6 \\text{ kg/day} = 21 \\text{ kg/day} \\).\n\n4. **Calculate weekly consumption:**\n   - There are 7 days in a week.\n   - Weekly consumption = Total daily consumption \\(\\times\\) 7.\n   - Weekly consumption = \\( 21 \\text{ kg/day} \\times 7 = 147 \\text{ kg/week} \\).\n\n#### 147"
+    },
+    {
+      "index": 1280,
+      "gold": "7",
+      "predicted": "7",
+      "correct": true,
+      "error": null,
+      "response_tail": " by step.\n\n1. **Determine Steve's Time**: Steve took 10 hours to complete the puzzle.\n   \n2. **Calculate Half of Steve's Time**: Half of Steve's time is \\( \\frac{10}{2} = 5 \\) hours.\n\n3. **Add 2 Hours to Half of Steve's Time**: Since Anna took 2 hours more than half of Steve's time, we add 2 hours to 5 hours. So, \\( 5 + 2 = 7 \\) hours.\n\nTherefore, it took Anna 7 hours to finish the puzzle.\n\n#### 7"
+    },
+    {
+      "index": 1311,
+      "gold": "594",
+      "predicted": "594",
+      "correct": true,
+      "error": null,
+      "response_tail": "very foot of dock.\n   - There are 200 feet of dock.\n   - Therefore, the total amount of line needed = 3 feet/dock * 200 feet = 600 feet.\n\n2. **Subtract the amount of line already available:**\n   - The caretaker already has 6 feet of new line.\n   - Total line needed = 600 feet (from step 1) - 6 feet (already available) = 594 feet.\n\nSo, the caretaker needs to buy 594 feet of line in total.\n\n#### 594"
+    }
+  ],
+  "scope_note": "50 grade-school arithmetic word problems. This is the only capability evidence in this project and licenses no claim beyond this task. With n=50 the 95% binomial interval is roughly +/-14 points, so only large accuracy gaps are meaningful."
+}
