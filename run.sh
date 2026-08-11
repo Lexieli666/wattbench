@@ -315,7 +315,19 @@ fi
 STARTED_AT="$(iso)"
 log "=== ${WB_POINT_ID} (${WB_EXPERIMENT}) ==="
 
-ensure_server || { log "FATAL: server unavailable"; exit 1; }
+if ! ensure_server; then
+  log "FATAL: server unavailable"
+  # Record it. A configuration this card cannot serve is a finding -- it is
+  # half of what a frontier is -- and exiting bare here used to leave nothing
+  # behind but a server log, so the rung vanished from the table entirely.
+  "$PY" "$REPO/harness.py" assemble \
+    --config "$CONFIG" \
+    --server-log "$SERVER_LOG" \
+    --status "server_failed_to_start" \
+    --started-at "$STARTED_AT" --finished-at "$(iso)" \
+    --out "$RESULT_JSON" || log "WARN: could not write failure record"
+  exit 1
+fi
 
 "$PY" "$REPO/harness.py" provenance > "$PROV_JSON"
 
