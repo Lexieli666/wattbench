@@ -182,6 +182,24 @@ def recomputed_goodput(r: dict) -> dict:
     return fresh
 
 
+def precision_of(model: str | None) -> str:
+    """Weight precision, read from the checkpoint name.
+
+    The configs deliberately leave `quantization` unset so that vLLM reads
+    quantization_config from the checkpoint and picks its own kernel -- forcing
+    one would measure our choice rather than what a user gets. That means the
+    config cannot answer this question and `server.quantization or "bf16"`
+    silently labels every int4 rung as BF16. The checkpoint name can answer it;
+    the kernel actually selected is recorded in each run's server log.
+    """
+    m = (model or "").lower()
+    if "awq" in m:
+        return "awq"
+    if "gptq" in m:
+        return "gptq"
+    return "bf16"
+
+
 def row_view(r: dict) -> dict:
     """Flatten one raw result into the fields every table and plot reads."""
     m = r.get("metrics") or {}
@@ -197,7 +215,8 @@ def row_view(r: dict) -> dict:
         "status": r.get("status"),
         "file": r.get("_path"),
         "model": server.get("model"),
-        "quantization": server.get("quantization") or "bf16",
+        "quantization": server.get("quantization") or precision_of(server.get("model")),
+        "max_model_len": server.get("max_model_len"),
         "input_len": load.get("input_len"),
         "output_len": load.get("output_len"),
         "request_rate": load.get("request_rate"),
@@ -226,6 +245,9 @@ def row_view(r: dict) -> dict:
         "clock_p50_mhz": g(e, "clock_sm_mhz", "p50"),
         "flags": e.get("flags") or [],
         "sanity": g(r, "sanity", "overall"),
+        # Present only on runs whose server never started; carries the root
+        # cause and memory-budget lines lifted from that server's own log.
+        "failure": r.get("failure") or {},
         # Server-side view. Saturation is a growing queue, which only the
         # server can report; the load generator cannot see it.
         "kv_util_mean": g(sm, "kv_cache_usage_perc", "mean"),
@@ -520,12 +542,7 @@ def max_sustainable_rate(srows: list[dict]) -> float | None:
 
 def arm_of(r: dict) -> str:
     """Which precision arm a run belongs to, from its checkpoint name."""
-    model = (r["model"] or "").lower()
-    if "awq" in model:
-        return "awq"
-    if "gptq" in model:
-        return "gptq"
-    return "bf16"
+    return precision_of(r["model"])
 
 
 def load_gsm8k() -> dict[str, dict]:
@@ -677,25 +694,57 @@ def cmd_frontier(args: argparse.Namespace) -> str:
         return 1e9
 
     rows.sort(key=size_key)
+
+    def cell(r: dict, field: str, spec: str) -> str:
+        # A rung whose server never started has no metrics, but it is not
+        # "not run" -- this project reserves that phrase for work never
+        # attempted, and these were attempted and failed. Say so.
+        if r["status"] != "ok":
+            return "--"
+        return fmt(r[field], spec)
+
+    def ms_cell(r: dict, field: str) -> str:
+        # A saturated rung queues for minutes. ".4g" renders that as 3.664e+05,
+        # which hides the single most important number in the table.
+        if r["status"] != "ok":
+            return "--"
+        v = r[field]
+        if v is None:
+            return NOT_RUN
+        return f"{v:,.0f}" if v >= 1000 else f"{v:.4g}"
+
     body = [
         [
             (r["model"] or "?").split("/")[-1],
             r["quantization"],
+            fmt(r["max_model_len"], "d"),
             r["status"] if r["status"] != "ok" else "served",
-            fmt(r["out_tok_throughput"], ".4g"),
-            fmt(r["ttft_p50_ms"], ".4g"),
-            fmt(r["ttft_p95_ms"], ".4g"),
-            fmt(r["mean_power_w"], ".4g"),
-            fmt(r["j_per_out_tok"], ".3g"),
+            cell(r, "out_tok_throughput", ".4g"),
+            ms_cell(r, "ttft_p50_ms"),
+            ms_cell(r, "ttft_p95_ms"),
+            cell(r, "mean_power_w", ".4g"),
+            cell(r, "j_per_out_tok", ".3g"),
         ]
         for r in rows
     ]
     note = ("\n\nRows marked with a non-`served` status are configurations that "
             "failed to serve. They are kept: what the card *cannot* do is part of "
-            "the frontier.\n")
+            "the frontier. `--` means the run was attempted and produced no "
+            "measurement, which is not the same as not run.\n")
+
+    # Why a rung failed is the whole content of that row, and it is recorded in
+    # the run's own server log rather than inferred here.
+    failed = [r for r in rows if r["status"] != "ok" and r["failure"].get("root_cause")]
+    if failed:
+        note += "\nWhy each non-`served` rung failed, from its server log:\n\n"
+        for r in failed:
+            name = (r["model"] or "?").split("/")[-1]
+            note += f"- **{name}** (`{r['file']}`): {r['failure']['root_cause']}\n"
+            for ev in r["failure"].get("evidence") or []:
+                note += f"  - {ev}\n"
     return ("## E3 — model-size frontier\n\n"
             + md_table(
-                ["model", "precision", "status", "out tok/s", "TTFT p50 ms",
+                ["model", "precision", "ctx", "status", "out tok/s", "TTFT p50 ms",
                  "TTFT p95 ms", "mean W", "J/tok"],
                 body,
             ) + note)
