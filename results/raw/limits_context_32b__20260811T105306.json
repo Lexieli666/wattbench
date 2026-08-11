@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "point_id": "limits_context_32b",
+  "experiment": "E2-limits",
+  "status": "no_context_served",
+  "description": "Longest servable context: largest --max-model-len that both loads and completes one request, walking a fixed ladder upward and stopping at the first failure.",
+  "config": {
+    "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
+    "label": "32b",
+    "gpu_memory_utilization": 0.9
+  },
+  "model_revision": {
+    "requested_revision": null,
+    "resolved_commit": "5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c",
+    "source": "hf_cache_refs"
+  },
+  "provenance": {
+    "captured_at": "2026-08-11T10:54:01.550677-07:00",
+    "host": {
+      "hostname": "yutongzhao",
+      "kernel": "6.6.114.1-microsoft-standard-WSL2",
+      "os": "Ubuntu 26.04 LTS",
+      "cpu": "Intel(R) Core(TM) i9-14900KF",
+      "ram_gib_total": "31"
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 4090",
+      "driver_version": "595.95",
+      "memory.total": "24564 MiB",
+      "power.limit": "450.00 W",
+      "power.max_limit": "450.00 W",
+      "power.min_limit": "150.00 W",
+      "persistence_mode": "Enabled",
+      "pcie.link.gen.current": "4",
+      "pcie.link.width.current": "16",
+      "clocks.max.sm": "3105 MHz",
+      "clocks.max.mem": "10501 MHz",
+      "cuda_version_smi": "13.2"
+    },
+    "stack": {
+      "python": "3.12.13",
+      "vllm": "0.26.0",
+      "torch": "2.11.0",
+      "transformers": "5.14.1",
+      "flashinfer": "0.6.14",
+      "xformers": null,
+      "torch_cuda": "13.0"
+    },
+    "harness_git": {
+      "commit": "45bb5ac4f5ce858f3b148a518558da83e919e212",
+      "branch": "main",
+      "dirty": true,
+      "dirty_files": [
+        "results/idle/idle__E3__20260811T102358.json",
+        "results/idle/idle__E3__20260811T102358.json.samples.csv",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.json",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.kv.csv",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.kv.json",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.power.csv",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.power.json",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.server.log",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.json",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.kv.csv",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.kv.json",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.power.csv",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.power.json",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.server.log",
+        "results/raw/e3_32b_awq_chat_r4__20260811T104715.server.log",
+        "results/raw/e3_32b_awq_chat_r4_ctx1024__20260811T104844.server.log",
+        "results/raw/e3_3b_awq_chat_r4__20260811T103143.json",
+        "results/raw/e3_3b_awq_chat_r4__20260811T103143.kv.csv",
+        "results/raw/e3_3b_awq_chat_r4__20260811T103143.kv.json",
+        "results/raw/e3_3b_awq_chat_r4__20260811T103143.power.csv"
+      ]
+    },
+    "env": {
+      "HF_HOME": "/home/yzhao/.cache/huggingface",
+      "VLLM_USE_V2_MODEL_RUNNER": "0",
+      "VLLM_USE_FLASHINFER_SAMPLER": "0"
+    }
+  },
+  "metrics": {
+    "longest_servable_context": null,
+    "attempts": [
+      {
+        "max_model_len": 4096,
+        "served": false,
+        "kv_cache_tokens": null,
+        "reported_concurrency": null,
+        "error": "RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}"
+      }
+    ]
+  }
+}

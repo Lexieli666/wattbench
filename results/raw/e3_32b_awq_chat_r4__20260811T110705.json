@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "point_id": "e3_32b_awq_chat_r4",
+  "experiment": "E3",
+  "description": "E3 frontier rung 32b (Qwen/Qwen2.5-32B-Instruct-AWQ), int4, chat shape, 4 req/s",
+  "status": "server_failed_to_start",
+  "run_started_at": "2026-08-11T11:07:05.155540285",
+  "run_finished_at": "2026-08-11T11:07:44.318007642",
+  "measurement_window": {
+    "start": null,
+    "end": null
+  },
+  "config": {
+    "server": {
+      "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
+      "revision": null,
+      "quantization": null,
+      "dtype": "bfloat16",
+      "max_model_len": 4096,
+      "gpu_memory_utilization": 0.9,
+      "max_num_seqs": 256,
+      "enable_prefix_caching": false,
+      "port": 8000,
+      "extra_args": [],
+      "load_timeout_s": 900
+    },
+    "load": {
+      "backend": "vllm",
+      "dataset": "random",
+      "input_len": 512,
+      "output_len": 128,
+      "request_rate": 4.0,
+      "burstiness": 1.0,
+      "num_prompts": 800,
+      "max_concurrency": null,
+      "seed": 0,
+      "ignore_eos": true,
+      "temperature": 0.0,
+      "extra_args": []
+    },
+    "protocol": {
+      "warmup_s": 30,
+      "warmup_prompts": 32,
+      "min_duration_s": 180,
+      "min_requests": 200
+    },
+    "slo": {
+      "ttft_p95_s": 1.0,
+      "e2e_p95_s": 10.0
+    },
+    "experiment": "E3",
+    "point_id": "e3_32b_awq_chat_r4",
+    "description": "E3 frontier rung 32b (Qwen/Qwen2.5-32B-Instruct-AWQ), int4, chat shape, 4 req/s"
+  },
+  "config_path": "configs/e3/32b.yaml",
+  "model_revision": {
+    "requested_revision": null,
+    "resolved_commit": "5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c",
+    "source": "hf_cache_refs"
+  },
+  "provenance": {
+    "captured_at": "2026-08-11T11:07:44.368331-07:00",
+    "host": {
+      "hostname": "yutongzhao",
+      "kernel": "6.6.114.1-microsoft-standard-WSL2",
+      "os": "Ubuntu 26.04 LTS",
+      "cpu": "Intel(R) Core(TM) i9-14900KF",
+      "ram_gib_total": "31"
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 4090",
+      "driver_version": "595.95",
+      "memory.total": "24564 MiB",
+      "power.limit": "450.00 W",
+      "power.max_limit": "450.00 W",
+      "power.min_limit": "150.00 W",
+      "persistence_mode": "Enabled",
+      "pcie.link.gen.current": "4",
+      "pcie.link.width.current": "16",
+      "clocks.max.sm": "3105 MHz",
+      "clocks.max.mem": "10501 MHz",
+      "cuda_version_smi": "13.2"
+    },
+    "stack": {
+      "python": "3.12.13",
+      "vllm": "0.26.0",
+      "torch": "2.11.0",
+      "transformers": "5.14.1",
+      "flashinfer": "0.6.14",
+      "xformers": null,
+      "torch_cuda": "13.0"
+    },
+    "harness_git": {
+      "commit": "45bb5ac4f5ce858f3b148a518558da83e919e212",
+      "branch": "main",
+      "dirty": true,
+      "dirty_files": [
+        "onfigs/e3/32b_short_ctx.yaml",
+        "harness.py",
+        "run.sh",
+        "results/idle/idle__E3-clean__20260811T105543.json",
+        "results/idle/idle__E3-clean__20260811T105543.json.samples.csv",
+        "results/idle/idle__E3__20260811T102358.json",
+        "results/idle/idle__E3__20260811T102358.json.samples.csv",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.json",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.kv.csv",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.kv.json",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.power.csv",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.power.json",
+        "results/raw/e3_14b_awq_chat_r4__20260811T104147.server.log",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.json",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.kv.csv",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.kv.json",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.power.csv",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.power.json",
+        "results/raw/e3_1p5b_awq_chat_r4__20260811T102629.server.log",
+        "results/raw/e3_32b_awq_chat_r4__20260811T104715.server.log"
+      ]
+    },
+    "env": {
+      "HF_HOME": "/home/yzhao/.cache/huggingface",
+      "VLLM_USE_V2_MODEL_RUNNER": "0",
+      "VLLM_USE_FLASHINFER_SAMPLER": "0"
+    }
+  },
+  "metrics": {},
+  "server_metrics": {
+    "available": false,
+    "reason": "server_failed_to_start"
+  },
+  "goodput": {
+    "available": false,
+    "reason": "server_failed_to_start"
+  },
+  "energy": {},
+  "failure": {
+    "root_cause": "ValueError: To serve at least one request with the model's max seq len (4096), (1.0 GiB KV cache is needed, which is larger than the available KV cache memory (0.58 GiB). Based on the available memory, the estimated maximum model length is 2368. Try increasing `gpu_memory_utilization` (which also controls CPU memory on the CPU backend) or decreasing `max_model_len` when initializing the engine. See https://docs.vllm.ai/en/latest/configuration/conserving_memory/ for more details.",
+    "evidence": [
+      "Model loading took 18.14 GiB memory and 11.465340 seconds",
+      "Estimated CUDA graph memory: 1.59 GiB total",
+      "Available KV cache memory: 0.58 GiB"
+    ],
+    "server_log_lines": 176
+  },
+  "artifacts": {
+    "bench_json": null,
+    "power_csv": null,
+    "kv_csv": null,
+    "power_json": null,
+    "server_log": "e3_32b_awq_chat_r4__20260811T110705.server.log"
+  },
+  "notes": []
+}
