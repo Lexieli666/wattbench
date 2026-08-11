@@ -468,6 +468,97 @@ def compute_goodput(bench: dict, slo_ttft_s: float, slo_e2e_s: float) -> dict:
     }
 
 
+# vLLM says why it refused to start in a handful of recognisable lines. The
+# whole server log is kept next to the record; these are lifted out so the
+# reason survives into a table without anyone reading the traceback.
+_ERR_RE = re.compile(r"^(?:\w+\.)*\w*(?:Error|Exception):\s")
+_FACT_RE = re.compile(
+    r"Available KV cache memory|estimated maximum model length"
+    r"|Free memory on device|Model loading took|Estimated CUDA graph memory"
+)
+
+
+def _strip_log_prefix(line: str) -> str:
+    """Drop the "(EngineCore pid=N) ERROR 08-11 10:48:40 [core.py:1330] " noise."""
+    line = re.sub(r"^\([A-Za-z]+ pid=\d+\)\s*", "", line.rstrip())
+    line = re.sub(r"^(?:ERROR|INFO|WARNING)\s+[\d-]+\s+[\d:]+\s+\[[^\]]+\]\s*", "",
+                  line)
+    return line.strip()
+
+
+def read_failure(server_log: str | None) -> dict:
+    """Recover, from a server's own log, why it never served."""
+    out: dict = {"root_cause": None, "evidence": [], "server_log_lines": 0}
+    if not server_log or not os.path.exists(server_log):
+        return out
+    causes: list[str] = []
+    facts: list[str] = []
+    with open(server_log, errors="replace") as fh:
+        for raw in fh:
+            out["server_log_lines"] += 1
+            line = _strip_log_prefix(raw)
+            if not line:
+                continue
+            if _ERR_RE.match(line):
+                if line not in causes:
+                    causes.append(line)
+            elif _FACT_RE.search(line) and line not in facts:
+                facts.append(line)
+    # The innermost exception is raised first and re-raised outward, so the
+    # first non-wrapper line is the actual cause. "Engine core initialization
+    # failed" is the wrapper and explains nothing on its own.
+    inner = [c for c in causes if "Engine core initialization failed" not in c]
+    out["root_cause"] = (inner or causes or [None])[0]
+    out["evidence"] = facts[-12:]
+    return out
+
+
+def assemble_unserved(args: argparse.Namespace, cfg: dict, prov: dict) -> int:
+    """Write a record for a configuration that never served a request.
+
+    Same schema as a served run, with the measured sections empty rather than
+    absent, so the row sorts and renders alongside the rungs that did serve.
+    """
+    failure = read_failure(args.server_log)
+    result = {
+        "schema_version": 1,
+        "point_id": cfg["point_id"],
+        "experiment": cfg.get("experiment"),
+        "description": cfg.get("description"),
+        "status": args.status,
+        "run_started_at": args.started_at,
+        "run_finished_at": args.finished_at,
+        "measurement_window": {"start": None, "end": None},
+        "config": {k: v for k, v in cfg.items() if not k.startswith("_")},
+        "config_path": cfg["_config_path"],
+        "model_revision": resolve_hf_revision(
+            cfg["server"]["model"], cfg["server"].get("revision")
+        ),
+        "provenance": prov,
+        "metrics": {},
+        "server_metrics": {"available": False, "reason": args.status},
+        "goodput": {"available": False, "reason": args.status},
+        "energy": {},
+        "failure": failure,
+        "artifacts": {
+            "bench_json": None,
+            "power_csv": None,
+            "kv_csv": None,
+            "power_json": None,
+            "server_log": (os.path.basename(args.server_log)
+                           if args.server_log else None),
+        },
+        "notes": args.note or [],
+    }
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+    with open(args.out, "w") as fh:
+        json.dump(result, fh, indent=2)
+    print(f"[harness] wrote {args.out} (status={args.status})")
+    if failure["root_cause"]:
+        print(f"[harness] root cause: {failure['root_cause']}")
+    return 0
+
+
 def assemble(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
     bench = _load_json(args.bench_json)
@@ -476,7 +567,15 @@ def assemble(args: argparse.Namespace) -> int:
     prov = _load_json(args.provenance) or provenance()
 
     if bench is None:
-        raise SystemExit(f"[harness] bench JSON missing: {args.bench_json}")
+        if args.status == "ok":
+            raise SystemExit(f"[harness] bench JSON missing: {args.bench_json}")
+        # A configuration that never produced load -- typically one whose
+        # server would not start -- is still a result. cmd_frontier already
+        # renders non-`served` statuses and keeps them, because an absent row
+        # in a frontier table reads as "does not exist" rather than "was not
+        # measured". Without this, the only rung the card cannot serve is the
+        # one rung the table fails to mention.
+        return assemble_unserved(args, cfg, prov)
 
     # Freeze `auto` sizing to the value actually used, so the record is exact.
     cfg["load"]["num_prompts"] = effective_num_prompts(cfg)
@@ -709,7 +808,10 @@ def main() -> int:
 
     a = sub.add_parser("assemble")
     a.add_argument("--config", required=True)
-    a.add_argument("--bench-json", required=True)
+    # Not required: a configuration whose server never started produces no
+    # bench output, and that outcome still has to be recorded (see
+    # assemble_unserved). A missing bench JSON with --status ok is still fatal.
+    a.add_argument("--bench-json")
     a.add_argument("--power-json")
     a.add_argument("--power-csv")
     a.add_argument("--kv-json")
