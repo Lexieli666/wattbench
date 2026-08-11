@@ -64,25 +64,101 @@ Verified machine inventory: [`results/environment.md`](results/environment.md).
 
 ## Headline results
 
-*Filled from committed raw data as experiments complete — see `results/tables/`.*
+Full tables in [`results/tables/`](results/tables/); every figure traces to a
+timestamped file in [`results/raw/`](results/raw/).
 
-### 1. Cost per 1M output tokens vs offered load
+### 1. Batching collapses cost and energy per token
+
+Qwen2.5-7B BF16, chat shape (512 in / 128 out), Poisson arrivals:
+
+| offered req/s | out tok/s | J / output token | mean batch | KV util | goodput req/s |
+|---|---|---|---|---|---|
+| 0.5 | 63.7 | 3.67 | 1.0 | 0.5% | 0.50 |
+| 2 | 253.2 | 1.28 | 4.5 | 2.3% | 1.98 |
+| 8 | 1012 | 0.399 | 27.8 | 14.2% | 7.91 |
+| **12** | **1515** | **0.293** | 82 | 42% | **11.4** |
+| 16 | 1614 | 0.277 | 170 | 87% | **0** |
+| 32 | 1591 | 0.283 | 167 | 85% | **0** |
+
+**Energy per token falls 13×** between 0.5 and 16 req/s. Nothing about the card
+changed — batching amortises the weight-bandwidth cost that dominates decode.
+
+![Energy per token vs load](results/plots/e1_energy_per_token_vs_load.png)
+
+### 2. Goodput falls off a cliff where throughput doesn't
+
+Past saturation throughput degrades *gracefully* — 12.6 → 12.65 → 12.43 req/s —
+while goodput goes to **exactly zero**: TTFT p95 reaches 35–108 seconds and the
+server preempts 239–267 times per run. A throughput-only benchmark reports this
+server as healthy at 32 req/s. It is unusable.
+
+![Goodput vs load](results/plots/e1_goodput_vs_load__512in_128out.png)
+
+**Max sustainable rate under the SLO** (TTFT ≤ 1 s, e2e ≤ 10 s): **12 req/s**
+chat, **2 req/s** RAG (2048 in / 256 out).
+
+### 3. Cost per 1M output tokens, and break-even
+
+At the best SLO-meeting point measured (12 req/s, 1515 tok/s sustained):
+
+| Line | $/1M output tokens |
+|---|---|
+| Electricity only (marginal) | $0.023 |
+| Card amortisation, 3 yr, 100% duty | $0.015 |
+| **Owned hardware, total** | **$0.037** |
+| Hypothetical rental (RunPod 4090, $0.34/hr, *reported*) | $0.062 |
+
+![Cost per 1M tokens vs load](results/plots/e5_cost_per_1m_vs_load__512in_128out.png)
+
+Break-even against hosted APIs, blended to an effective output price at the
+benchmarked 4:1 input:output ratio — **all API prices reported, not measured**:
+
+| API | comparable weight class | effective $/1M out | break-even |
+|---|---|---|---|
+| DeepInfra Llama-3.1-8B | yes | $0.120 | 19.7M tok/day (15% of capacity) |
+| DeepInfra Qwen3-14B | yes | $0.720 | 2.75M tok/day (2%) |
+| Together Qwen2.5-7B | yes | $1.500 | 1.30M tok/day (<1%) |
+| Anthropic Haiku 4.5 | **no** | $9.000 | 213k tok/day (<1%) |
+
+**The card pays for itself at ~1.3M output tokens/day against the closest
+like-for-like hosted option** — under 1% of what it can actually serve. Even
+against the cheapest hosted small model on the list, break-even is 15% duty
+cycle. The amortisation line assumes the card is busy at 1515 tok/s every hour
+of three years; at 10% duty cycle the amortised component is 10× higher.
+
+### 4. What int4 buys on 24 GB
+
+| | BF16 | AWQ int4 |
+|---|---|---|
+| ITL p50 @ 2 req/s | 16.75 ms | **6.46 ms** |
+| J/token @ 2 req/s | 1.28 | **1.08** (−16%) |
+| J/token @ 8 req/s | 0.383 | 0.374 (−2%) |
+| KV per concurrent request | ~0.58% | **~0.23%** |
+| Concurrency before preemption | **~170** | **~435** |
+| Preemptions @ 256 concurrent | 245 | **0** |
+| Longest servable context | 32,768 | 32,768 |
+| GSM8K (50 items) | 96.0% | 92.0% |
+
+Int4's advantage is **load-dependent**: large at low load, nearly gone at
+mid load. Batching and quantization attack the same bottleneck, so whichever is
+applied first captures most of the gain.
+
+**Two results that contradict expectations, reported rather than smoothed:**
+
+- **Int4 does not extend servable context here.** Both formats cap at exactly
+  32,768 — the checkpoints' `max_position_embeddings`. The ceiling is
+  architectural, not memory-bound, despite AWQ holding 2.6× the KV cache. Int4's
+  memory converts into *concurrent requests*, not longer ones.
+- **AWQ and GPTQ are indistinguishable** (ITL within 1.3%). vLLM routes both
+  through the same Marlin kernel, so on this stack the checkpoint format is
+  packaging rather than performance.
+
+The quality guard is 50 items with heavily overlapping intervals: it rules out a
+quality collapse and **cannot certify parity**.
+
+### 5. Model-size frontier
 
 Not run.
-
-### 2. Energy per token vs offered load
-
-Not run.
-
-### 3. Model-size frontier
-
-Not run.
-
-### Break-even volume
-
-Not run.
-
----
 
 ## Run-to-run variance — the bar every other number carries
 
