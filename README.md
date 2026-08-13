@@ -133,15 +133,26 @@ of three years; at 10% duty cycle the amortised component is 10× higher.
 | ITL p50 @ 2 req/s | 16.75 ms | **6.46 ms** |
 | J/token @ 2 req/s | 1.28 | **1.08** (−16%) |
 | J/token @ 8 req/s | 0.383 | 0.374 (−2%) |
+| Throughput @ 16 req/s (saturated) | 1606 tok/s | 1607 tok/s (+0.1%) |
 | KV per concurrent request | ~0.58% | **~0.23%** |
 | Concurrency before preemption | **~170** | **~435** |
 | Preemptions @ 256 concurrent | 245 | **0** |
 | Longest servable context | 32,768 | 32,768 |
 | GSM8K (50 items) | 96.0% | 92.0% |
 
-Int4's advantage is **load-dependent**: large at low load, nearly gone at
-mid load. Batching and quantization attack the same bottleneck, so whichever is
-applied first captures most of the gain.
+Int4's advantage is **load-dependent, and it runs out**: large at low load,
+nearly gone at mid load, and at saturation the two formats deliver the same
+throughput to within 0.1% — parity against a saturated-regime bar of 1.2%.
+Batching and quantization attack the same bottleneck, so whichever is applied
+first captures most of the gain.
+
+What int4 still buys at saturation is not speed but **headroom**: the same 1607
+tok/s comes out of a 35% larger running batch at 47% KV utilisation with zero
+preemptions, where BF16 is at 87% KV and evicts 239 times. The saturated
+throughput advantage measured on this card is between **0 and 7%** depending on
+how load is applied — 0.1% at a fixed offered rate, 6.8% at a fixed concurrency
+of 256, where AWQ's KV headroom keeps requests resident instead of evicting
+them.
 
 **Two results that contradict expectations, reported rather than smoothed:**
 

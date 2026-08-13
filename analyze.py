@@ -601,8 +601,13 @@ def cmd_ablation(args: argparse.Namespace) -> str:
              "J/tok", "vs BF16", "mean W", "SLO attain"], body))
         out.append("")
         out.append("Relative columns compare against the BF16 arm at the same offered "
-                   "rate. Per E0, throughput differences below ~0.4% and energy "
-                   "differences below ~0.4% are inside run-to-run noise.")
+                   "rate. **E0's variance bar is regime-specific, and each row must be "
+                   "read against its own regime.** Unsaturated rows (2 and 8 req/s): "
+                   "energy CV 0.16%, so differences below ~0.4% are noise. Saturated "
+                   "rows (16 req/s), from the three E0-sat repeats: throughput CV "
+                   "1.20%, energy CV 1.08%, so differences below ~1.2% are noise. "
+                   "Borrowing the unsaturated bar for a saturated row would manufacture "
+                   "significance that is not there.")
         out.append("")
 
     # --- quality guard ---

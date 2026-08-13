@@ -7,10 +7,10 @@
 | 8     | bf16 | 1011      | baseline | 386.3       | 0.383 | baseline | 370.9  | 1.000      |
 | 8     | awq  | 1019      | +0.8%    | 191.2       | 0.374 | -2.2%    | 364.6  | 1.000      |
 | 8     | gptq | 1019      | +0.8%    | 191.6       | 0.369 | -3.6%    | 358.6  | 1.000      |
-| 16    | bf16 | 1262      | baseline | 8.295e+04   | 0.328 | baseline | 396.6  | 0.000      |
-| 16    | awq  | 1537      | +21.7%   | 4.432e+04   | 0.272 | -17.0%   | 398.4  | 0.008      |
+| 16    | bf16 | 1606      | baseline | 3.544e+04   | 0.279 | baseline | 426.4  | 0.000      |
+| 16    | awq  | 1607      | +0.1%    | 3.646e+04   | 0.271 | -3.1%    | 413.4  | 0.008      |
 
-Relative columns compare against the BF16 arm at the same offered rate. Per E0, throughput differences below ~0.4% and energy differences below ~0.4% are inside run-to-run noise.
+Relative columns compare against the BF16 arm at the same offered rate. **E0's variance bar is regime-specific, and each row must be read against its own regime.** Unsaturated rows (2 and 8 req/s): energy CV 0.16%, so differences below ~0.4% are noise. Saturated rows (16 req/s), from the three E0-sat repeats: throughput CV 1.20%, energy CV 1.08%, so differences below ~1.2% are noise. Borrowing the unsaturated bar for a saturated row would manufacture significance that is not there.
 
 ### Quality guard — GSM8K exact match
 
