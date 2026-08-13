@@ -226,6 +226,40 @@ kept off the machine during measured runs.
 Empty except for `CLAUDE.md`; no prior work to preserve. `git init` was run here
 (`main` branch). `results/raw/` is explicitly **not** ignored.
 
+## Addendum, 2026-08-13 — re-verified at the start of the E4 session
+
+A new session on the same machine. Everything that governs comparability with
+the E0–E3 series was re-read from the machine before any measurement, because a
+silent driver update or a changed power limit would invalidate cross-series
+comparison rather than merely add noise.
+
+| Item | E0–E3 (2026-08-09) | Now (2026-08-13) | Comparable |
+|---|---|---|---|
+| Card / VRAM | RTX 4090, 24564 MiB | same | yes |
+| Driver (host) | 595.95 | 595.95 | yes |
+| NVIDIA-SMI (WSL stub) | 595.61 | 595.61 | yes |
+| Power limit (current/default/max) | 450 / 450 / 450 W | same | yes |
+| Persistence mode | Enabled | Enabled | yes |
+| Kernel | 6.6.114.1-microsoft-standard-WSL2 | same | yes |
+| Python / vLLM / torch | 3.12.13 / 0.26.0 / 2.11.0+cu130 | same | yes |
+| RAM visible to WSL | 31 GiB | 31 GiB | yes |
+
+**Nothing that affects comparability changed**, so the E0–E3 points and anything
+measured in this session sit in one series.
+
+Two non-comparability facts did move, both recorded for completeness: ext4 free
+space is now 813 GB (was 879 GB) with the HF cache at 61 GB, which is the model
+ladder on disk; and the idle GPU state at the moment of checking was 20.0–20.8 W
+with SM clocks at their 210 MHz floor and no compute processes, i.e. quiescent
+by the power criterion that this project trusts (`util_gpu_pct` read 16–40% at
+the same time and, as established earlier, means nothing here).
+
+Session baseline: `results/idle/idle__E2-recheck__20260813T104658.json`, mean
+23.268 W. It reproduces the bimodality documented in METHODOLOGY: median
+19.95 W against a mean of 23.27 W, p95 58.19 W, max 64.51 W. The intermittent
+~62 W host consumer is still present on this machine and is still the reason the
+idle *mean* is a fragile statistic.
+
 ## Things to keep true across runs
 
 - Close other GPU consumers before a measured run (plan §2). The desktop's
