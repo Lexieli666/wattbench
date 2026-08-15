@@ -189,11 +189,51 @@ def check_baselines() -> None:
 # --------------------------------------------------------------------------
 
 
+def reportable_power_logs() -> set[str]:
+    """Power logs behind a result that analysis actually reports.
+
+    The gate below asks "is ~2 Hz fast enough to integrate this trace?", which
+    is only a question about traces something is reported from. Two kinds of log
+    are excluded, and neither exclusion hides a defect:
+
+      superseded  an earlier run of a point that was re-run; analyze.py already
+                  excludes these from every table.
+      not ok      a run that produced no measurement -- a server that would not
+                  start, or a load generator that exited on a bad flag. One of
+                  those left a 3 s window of 31 samples behind, which cannot
+                  meet a discretisation bound and should not be asked to.
+
+    Both remain committed and readable; they simply do not gate J/token.
+    """
+    newest: dict[str, tuple[str, str]] = {}
+    for path in sorted(glob.glob(os.path.join(RAW, "*.json"))):
+        if path.endswith((".power.json", ".kv.json")):
+            continue
+        try:
+            with open(path) as fh:
+                r = json.load(fh)
+        except json.JSONDecodeError:
+            continue
+        pid = r.get("point_id")
+        if not pid:
+            continue
+        # Filenames carry a sortable timestamp, so the last one wins.
+        newest[pid] = (path, r.get("status") or "")
+    keep = set()
+    for path, status in newest.values():
+        if status != "ok":
+            continue
+        keep.add(os.path.basename(path)[: -len(".json")] + ".power.csv")
+    return keep
+
+
 def check_integration() -> None:
-    logs = sorted(glob.glob(os.path.join(RAW, "*.power.csv")))
-    if not logs:
+    all_logs = sorted(glob.glob(os.path.join(RAW, "*.power.csv")))
+    if not all_logs:
         record("integration_corpus", FAIL, "no power CSVs in results/raw/")
         return
+    reportable = reportable_power_logs()
+    logs = [p for p in all_logs if os.path.basename(p) in reportable] or all_logs
 
     bounds, naive_diffs, worst = [], [], None
     for path in logs:
@@ -214,10 +254,12 @@ def check_integration() -> None:
         record("integration_corpus", FAIL, "no integrable power logs")
         return
 
+    skipped = len(all_logs) - len(logs)
     record(
         "energy_integration_converged",
         PASS if max(bounds) < 0.02 else FAIL,
-        f"{len(bounds)} power logs; discretisation bound max {max(bounds):.4f}, "
+        f"{len(bounds)} reportable power logs ({skipped} superseded or failed "
+        f"runs excluded); discretisation bound max {max(bounds):.4f}, "
         f"median {statistics.median(bounds):.4f} (tolerance 0.02). "
         f"Worst: {worst[0]}. The ~2Hz cadence resolves these traces.",
     )
