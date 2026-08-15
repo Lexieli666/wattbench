@@ -49,7 +49,7 @@ J/token as functions of offered load — on hardware people own, reproducibly.*
 | | |
 |---|---|
 | Hardware | 1 × NVIDIA GeForce RTX 4090, 24 GB, in a Windows desktop |
-| Serving | vLLM 0.26.0 under WSL2 (Ubuntu 26.04), driver 595.95 |
+| Serving | vLLM 0.26.0, and llama.cpp (`6b4344e`) for the stack comparison, under WSL2 (Ubuntu 26.04), driver 595.95 |
 | Models | Qwen2.5-Instruct, 1.5B → 32B, BF16 and int4 |
 | Shapes | chat (512 in / 128 out) and RAG (2048 in / 256 out) |
 | Arrivals | Poisson, fixed seed, 0.5 → 32 req/s |
@@ -216,6 +216,60 @@ server's own log: [`results/tables/e3_frontier.md`](results/tables/e3_frontier.m
 No GSM8K guard was run for these checkpoints, so this section makes **no claim
 about output quality** at any size — only about what the card can serve.
 
+### 6. Two serving stacks, at their native int4
+
+vLLM (AWQ int4) against llama.cpp (GGUF Q4_K_M), same model family and size,
+same 512-in/128-out shape, same tokenizer, same load generator, same session.
+**The two formats are not the same weights** — vLLM does not serve GGUF well and
+llama.cpp does not serve AWQ at all, so this compares *stacks at their native
+int4*, and a gap includes whatever the formats themselves cost.
+
+| concurrency | vLLM out tok/s | llama.cpp out tok/s | vLLM J/tok | llama.cpp J/tok |
+|---|---|---|---|---|
+| 1 | 148.9 | 145.6 (−2.2%) | 2.08 | 2.38 (+14%) |
+| 8 | 820.2 | 482.8 (−41%) | 0.419 | 0.791 (+89%) |
+| 32 | **1542** | 755.6 (−51%) | **0.262** | 0.339 (+29%) |
+
+![Two stacks at their native int4](results/plots/e4_stacks_vs_concurrency.png)
+
+**At one request in flight the two are indistinguishable** — 2.2% apart, inside
+the run-to-run bar. **Under load vLLM's continuous batching pulls away**: +70%
+throughput at 8 concurrent, +104% at 32, at 47% and 23% less energy per token.
+That is the shape the project plan predicted. It is not the shape the first
+measurement produced, and the reason is the most useful thing E4 found.
+
+**The HTTP transport dominated the first pass, and it is worth its own section.**
+The load generator reuses pooled connections by default. llama.cpp leaves
+cpp-httplib's 5-second keep-alive timeout in place, so the server closes
+connections the client still holds — and the two stacks paid for that in
+completely different currencies:
+
+| with connection reuse | vLLM | llama.cpp |
+|---|---|---|
+| requests dropped @ c8 | 0 | **87 / 800 (10.9%)** |
+| throughput lost @ c1 | **−59%** (148.9 → 61.4) | −0.9% |
+| throughput lost @ c32 | **−44%** (1542 → 862) | −1.4% |
+
+This is not a clock artefact in the client: mean GPU power moved 185 → 300 W at
+concurrency 1 for identical work, and integrated energy for the same 200
+requests fell **78.3 → 53.3 kJ**. With reuse, the card was genuinely idle
+waiting. Running the first pass as-is would have published "llama.cpp is 2.35×
+faster than vLLM at concurrency 1" — the exact opposite of the truth, which is a
+2.2% tie.
+
+Both arms now send `Connection: close`, set identically rather than only where
+it hurt. Two single-variable controls close the loose ends: `max_num_seqs`
+256 → 512 explains **none** of it (1542.4 vs 1539.4 tok/s, 0.2% apart), and
+re-running an **E1** point with the transport as the only change moved
+throughput by 0.04% and energy by 1.4% — so **E0–E3 are unaffected**, tested
+rather than assumed. The pathology needs a closed loop: at a fixed offered rate
+the next request is scheduled by a timer and a reuse stall overlaps waiting that
+was happening anyway; under a concurrency cap it serialises with generation.
+
+Full account, including the kept first-pass runs:
+[`results/tables/e4_transport.md`](results/tables/e4_transport.md) and
+[`results/tables/e4_stacks.md`](results/tables/e4_stacks.md).
+
 ## Run-to-run variance — the bar every other number carries
 
 Before any comparison is claimed, the same reference configuration is run three
@@ -235,6 +289,7 @@ VIRTUAL_ENV=~/wattbench-venv uv pip install vllm pyyaml matplotlib
 ./fetch_models.sh                     # pre-fetch weights (hours, at ~3 MB/s)
 ./baseline.sh E1-chat                 # fresh idle-power baseline, GPU quiet
 ./sweep.sh --series E1-chat configs/e1/chat/*.yaml
+./run_e4.sh                           # stack comparison; needs llama.cpp built
 # The other scripts resolve the venv themselves; this one runs on whatever
 # python3 is on PATH, and the system one has no matplotlib.
 ~/wattbench-venv/bin/python ./analyze.py all   # tables + plots into results/
@@ -270,6 +325,14 @@ host.**
 - **One card, no failover, no ops budget.** The cost model prices silicon and
   electricity. It does not price your time, downtime, or the absence of a
   second machine.
+- **No identical-weights stack comparison.** E4's arms serve different int4
+  formats because that is what each stack natively serves. It answers "which
+  stack should I run", not "which batching implementation is faster".
+- **One client, and the client turned out to matter.** Every number here is
+  measured through `vllm bench serve`. The transport finding above shows a
+  client-side setting moving measured throughput by up to 59%, so these are
+  results for this server-plus-client pair, not intrinsic properties of either
+  server.
 
 ---
 
@@ -285,6 +348,7 @@ harness.py      config parsing, provenance, result assembly, sanity checks
 validate_energy.py  M3 gate: energy numbers are checked before they are used
 gsm8k_guard.py  50-item quality guard for the quantization ablation
 probe_limits.sh longest servable context per checkpoint
+run_e4.sh       the stack comparison, both arms plus its controls
 analyze.py      raw -> tables and plots
 pricing.yaml    dated external data, all reported-not-measured
 results/raw/    committed raw output, append-only
