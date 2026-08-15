@@ -1,6 +1,7 @@
 # Status and remaining work
 
-Updated 2026-08-14. Everything below is recoverable from the repo alone.
+Updated 2026-08-15, at the v0.1 tag. Everything below is recoverable from
+the repo alone.
 
 ## Done (measured, committed, analysed)
 
@@ -14,10 +15,12 @@ Updated 2026-08-14. Everything below is recoverable from the repo alone.
 | M5 E2 ablation | 7 rate points, 3 GSM8K guards, 8-point concurrency ladder, 2 context probes |
 | M6 E3 frontier | 1.5B/3B/7B/14B at 4096 + 32B at 1024, 3 recorded 32B serve failures, 14B and 32B context probes, 7B control |
 | M7 write-up | README, METHODOLOGY, SETUP-WSL2, pricing.yaml |
+| M8 E4 stacks | vLLM vs llama.cpp at concurrency 1/8/32, plus 3 transport and scheduler controls |
 
 Regenerate every table and plot from raw data:
 
 ```bash
+~/wattbench-venv/bin/python ./validate_energy.py   # M3 gate, must pass first
 ~/wattbench-venv/bin/python ./analyze.py all
 ```
 
@@ -51,16 +54,36 @@ Regenerate every table and plot from raw data:
    on this card is 0–7% depending on how load is applied, not the withdrawn
    +21.7%. Full account in `results/tables/e2_r16_anomaly.md`.
 
+3. **M8 / E4 is measured and written up**, 2026-08-15. vLLM and llama.cpp are
+   within 2.2% at concurrency 1; vLLM leads +70% at 8 and +104% at 32, at 47%
+   and 23% less energy per token. Plan §4's expected shape, confirmed — but the
+   first pass measured the opposite, and why is the more useful finding:
+
+   **HTTP connection reuse moved measured throughput by up to 59%.** The two
+   stacks paid in different currencies, which is what made it dangerous:
+   llama.cpp dropped ~11% of requests (cpp-httplib's 5 s keep-alive timeout,
+   left at its default), while vLLM dropped none and instead lost 59% of its
+   concurrency-1 throughput. Measured with reuse on, llama.cpp looks 2.35×
+   faster than vLLM at concurrency 1, where the two are within 2.2%. Server-side
+   power confirms it is real, not a client clock: 185 → 300 W on identical work,
+   78.3 → 53.3 kJ for the same 200 requests. Both arms now send
+   `Connection: close`. Full account: `results/tables/e4_transport.md`.
+
+   E0–E3 were *checked*, not assumed: an E1 point re-run with the transport as
+   the only change moved 0.04% on throughput and 1.4% on energy. The pathology
+   needs a closed loop; E1's Poisson arrivals are open-loop and absorb it.
+
 ## Remaining
 
-1. **M8 / E4 stack comparison.** vLLM vs. llama.cpp server at concurrency 1, 8
-   and 32, per plan §4 E4. In progress as of 2026-08-15. SGLang stays optional
-   and default-skipped. The caveat belongs in every E4 table and plot: GGUF
-   Q4_K_M and AWQ are different quantization formats, so this compares **stacks
-   at their native int4**, not identical weights.
+Nothing blocking v0.1. Optional next work, in rough order of value:
 
-2. **Close v0.1**: regenerate from raw, trace every README number to a raw file
-   or a dated source, tag.
+1. **Stretch items from plan §6**, untouched: prefix caching on/off for the RAG
+   shape, and speculative decoding with a 1.5B draft model.
+2. **A GSM8K guard for the E4 arms.** The quality guard covers BF16/AWQ/GPTQ but
+   not GGUF Q4_K_M, so E4 currently makes no quality claim about either arm.
+3. **The keep-alive result deserves a second client.** Everything here is
+   measured through `vllm bench serve`; whether the 59% is a property of that
+   client's connection pooling or of vLLM's HTTP layer is not established.
 
 ## Rules that bit hard here — do not relax them
 
@@ -79,8 +102,20 @@ Regenerate every table and plot from raw data:
   TTFT p95. Saturated: 1.09% energy, 5.83% TTFT p95. Cross-session tail latency
   drifts ~2%. Do not borrow one regime's bar for another.
 - **Compare a new point against an existing measurement of the same config.**
-  That reflex caught three defects nothing else did — now four: it is what
-  established the E3 sweep was clean despite a visibly suspect idle baseline.
+  That reflex caught three defects nothing else did — now five. It is what
+  established the E3 sweep was clean despite a visibly suspect idle baseline,
+  and it is the only reason the E4 transport artefact was found: E4's c32 point
+  disagreed with E2's ladder by 1.9×, and chasing that disagreement was what
+  turned up a 59% measurement error.
+- **The client is part of the instrument.** HTTP connection reuse changed
+  measured throughput by up to 59% and dropped 11% of requests, differently for
+  each stack. Any comparison must state and equalise its transport, and a
+  measured "stack A is faster" is really "stack A plus this client is faster".
+- **Isolate one variable per control, and prefer a control to an argument.**
+  Three single-variable runs settled E4: `max_num_seqs` (explained 0.2% of a
+  1.9× gap), the transport (explained all of it), and an E1 re-run (proved
+  E0–E3 were untouched). Each took minutes; each replaced a plausible story
+  with a number.
 - **A failure that writes no record is a silent omission.** `run.sh` used to
   exit bare when a server would not start, so the one rung the card *cannot*
   serve was the one rung missing from the frontier table — reading as "does not
