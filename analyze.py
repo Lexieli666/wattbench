@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from typing import Any
 
 import harness
+import power_log
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(REPO, "results", "raw")
@@ -182,6 +183,71 @@ def recomputed_goodput(r: dict) -> dict:
     return fresh
 
 
+_BASELINE_CACHE: dict[str, dict] = {}
+_INCR_RECOMPUTED: dict[str, float] = {}  # point_id -> relative change vs stored
+
+
+def load_baseline(name: str) -> dict | None:
+    """One idle baseline JSON from results/idle/, by filename."""
+    if name not in _BASELINE_CACHE:
+        path = os.path.join(REPO, "results", "idle", name)
+        try:
+            with open(path) as fh:
+                _BASELINE_CACHE[name] = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            _BASELINE_CACHE[name] = {}
+    return _BASELINE_CACHE[name] or None
+
+
+def recomputed_incremental(r: dict) -> dict:
+    """Incremental energy recomputed under the current idle-baseline policy.
+
+    Runs measured before 2026-08-14 subtracted the *mean* of their idle window.
+    Idle draw here is bimodal, so the mean is set by how many 1.7-4.0 s bursts
+    from an external consumer happened to land in the 130 s window: across
+    twelve baselines the mean ranged 18.8-27.9 W while the median never left
+    18.7-22.2 W. The policy is now median subtraction (decided 2026-08-14).
+
+    Applying it here rather than rewriting results/raw/ follows the same rule as
+    recomputed_goodput: the raw file stays an honest record of what the harness
+    computed at the time, and git plus METHODOLOGY.md carry the correction. The
+    baseline files themselves are unchanged raw data -- only which statistic is
+    read out of them changed.
+
+    Raw J/token is untouched by any of this; only the idle-subtracted figure
+    moves, and for 34 of 47 runs -- every run on an excursion-free baseline --
+    it moves by less than 0.05%.
+    """
+    e = r.get("energy") or {}
+    stored_j = e.get("incremental_energy_j")
+    ej, win = e.get("energy_j"), e.get("window_s")
+    src = (e.get("idle_baseline_source") or {}).get("file")
+    if not (ej and win and src):
+        return {"incremental_energy_j": stored_j,
+                "j_per_output_token_incremental": e.get("j_per_output_token_incremental"),
+                "idle_baseline_w": e.get("idle_baseline_w")}
+    baseline = load_baseline(src)
+    idle_w = power_log.baseline_idle_w(baseline) if baseline else None
+    if idle_w is None:
+        return {"incremental_energy_j": stored_j,
+                "j_per_output_token_incremental": e.get("j_per_output_token_incremental"),
+                "idle_baseline_w": e.get("idle_baseline_w")}
+    incr = round(ej - idle_w * win, 2)
+    out_tok = (r.get("metrics") or {}).get("total_output_tokens")
+    fresh = {
+        "incremental_energy_j": incr,
+        "j_per_output_token_incremental": round(incr / out_tok, 5) if out_tok else None,
+        "idle_baseline_w": idle_w,
+        "idle_baseline_stat": "median",
+    }
+    if stored_j:
+        rel = (incr - stored_j) / stored_j
+        if abs(rel) > 1e-6:
+            fresh["superseded_stored_value"] = stored_j
+            _INCR_RECOMPUTED[r.get("point_id") or "?"] = rel
+    return fresh
+
+
 def precision_of(model: str | None) -> str:
     """Weight precision, read from the checkpoint name.
 
@@ -205,6 +271,7 @@ def row_view(r: dict) -> dict:
     m = r.get("metrics") or {}
     e = r.get("energy") or {}
     gp = recomputed_goodput(r)
+    incr = recomputed_incremental(r)
     sm = r.get("server_metrics") or {}
     cfg = r.get("config") or {}
     load = cfg.get("load") or {}
@@ -237,10 +304,13 @@ def row_view(r: dict) -> dict:
         "goodput_rps": gp.get("goodput_req_per_s") if gp.get("available") else None,
         "slo_attainment": gp.get("slo_attainment_frac") if gp.get("available") else None,
         "energy_j": e.get("energy_j"),
-        "incremental_energy_j": e.get("incremental_energy_j"),
+        # Idle-subtracted energy is recomputed under the current baseline
+        # policy (median, decided 2026-08-14); raw energy is untouched.
+        "incremental_energy_j": incr.get("incremental_energy_j"),
+        "idle_baseline_w": incr.get("idle_baseline_w"),
         "mean_power_w": e.get("mean_power_w"),
         "j_per_out_tok": e.get("j_per_output_token"),
-        "j_per_out_tok_incr": e.get("j_per_output_token_incremental"),
+        "j_per_out_tok_incr": incr.get("j_per_output_token_incremental"),
         "temp_max_c": g(e, "temp_c", "max"),
         "clock_p50_mhz": g(e, "clock_sm_mhz", "p50"),
         "flags": e.get("flags") or [],
@@ -1308,6 +1378,14 @@ def main() -> int:
     out = fn(args)
     if out:
         print(out)
+    if _INCR_RECOMPUTED:
+        big = {k: v for k, v in _INCR_RECOMPUTED.items() if abs(v) >= 0.001}
+        worst = max(_INCR_RECOMPUTED.items(), key=lambda kv: abs(kv[1]))
+        print(f"[analyze] idle-subtracted energy recomputed under the median "
+              f"baseline policy for {len(_INCR_RECOMPUTED)} run(s), of which "
+              f"{len(big)} moved by more than 0.1% (worst {worst[0]} "
+              f"{worst[1]:+.2%}); raw J/token unchanged. See METHODOLOGY "
+              f"'Idle baseline'.", file=sys.stderr)
     return 0
 
 

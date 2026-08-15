@@ -213,6 +213,96 @@ def _pct(sorted_vals: list[float], q: float) -> float | None:
     return sorted_vals[lo] * (1 - frac) + sorted_vals[hi] * frac
 
 
+# --------------------------------------------------------------------------
+# robust idle statistics
+# --------------------------------------------------------------------------
+#
+# Idle draw on this machine is bimodal: a stable quiescent floor plus 1.7-4.0 s
+# bursts to 50-66 W from an intermittent consumer outside this benchmark (the
+# card also drives the Windows desktop). The bursts recur every ~30-50 s, so a
+# 130 s window either contains several or none depending on which session you
+# are in -- across twelve committed baselines the median stayed inside
+# 18.7-22.2 W while the mean ranged 18.8-27.9 W.
+#
+# The mean is therefore not a usable estimator of the idle floor here, and
+# neither is "re-measure until the window is clean": the longest excursion-free
+# stretch observed inside a contaminated window is 44-99 s, always shorter than
+# the measurement. Decided 2026-08-14, see METHODOLOGY: subtract the median, and
+# judge a baseline's stability with a robust spread rather than p95-min.
+
+EXCURSION_W = 40.0  # above the ~20 W floor, below the ~50 W burst peaks
+
+
+def samples_csv_for(baseline_json: str) -> str | None:
+    """The sample CSV beside an idle baseline JSON, under either naming.
+
+    Current baselines write `<name>.json.samples.csv`; the m1-smoke baseline
+    predates that and writes `<name>.samples.csv`. Both are committed.
+    """
+    candidates = [baseline_json + ".samples.csv"]
+    if baseline_json.endswith(".json"):
+        candidates.append(baseline_json[: -len(".json")] + ".samples.csv")
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
+
+def read_idle_powers(baseline_json: str) -> list[float]:
+    """Power samples behind an idle baseline, or [] if the CSV is missing."""
+    path = samples_csv_for(baseline_json)
+    if not path:
+        return []
+    out = []
+    with open(path) as fh:
+        for row in csv.DictReader(fh):
+            v = _f(row.get("power_w", ""))
+            if v is not None:
+                out.append(v)
+    return out
+
+
+def robust_idle_stats(powers: list[float]) -> dict:
+    """Median, IQR and excursion fraction for one idle window.
+
+    `iqr_over_median` replaces `(p95 - min) / mean` as the stability statistic:
+    p95 *is* the excursion here, so the old measure reported 0.07-1.89 across a
+    corpus whose quiescent floor never moved by more than 3.4 W. The robust
+    version reads 0.02-0.16 over the same twelve baselines, so it still has room
+    to catch a genuinely unstable window.
+    """
+    if not powers:
+        return {}
+    s = sorted(powers)
+    med = _pct(s, 0.50)
+    iqr = _pct(s, 0.75) - _pct(s, 0.25)
+    n_over = sum(1 for p in powers if p > EXCURSION_W)
+    return {
+        "median_w": round(med, 3),
+        "iqr_w": round(iqr, 3),
+        "iqr_over_median": round(iqr / med, 4) if med else None,
+        "excursion_threshold_w": EXCURSION_W,
+        "excursion_samples": n_over,
+        "excursion_frac": round(n_over / len(powers), 4),
+        "quiescent_mean_w": round(
+            sum(p for p in powers if p <= EXCURSION_W)
+            / max(1, sum(1 for p in powers if p <= EXCURSION_W)), 3),
+        "n_samples": len(powers),
+    }
+
+
+def baseline_idle_w(baseline: dict) -> float | None:
+    """The watts to subtract for a baseline, under the current policy.
+
+    Baselines written before 2026-08-14 stored the mean in `idle_power_w`; their
+    median is in `power_w.p50`, so the policy applies to the whole corpus
+    without touching a single committed raw file.
+    """
+    if baseline.get("idle_stat") == "median":
+        return baseline.get("idle_power_w")
+    return (baseline.get("power_w") or {}).get("p50")
+
+
 def integrate(
     rows: list[dict],
     idle_baseline_w: float | None = None,
@@ -422,10 +512,24 @@ def idle(out_path: str, duration_s: float, interval_ms: int, settle_s: float,
     summary["measured_at"] = datetime.now().astimezone().isoformat()
     summary["settle_s_discarded"] = settle_s
     summary["samples_csv"] = os.path.basename(tmp)
-    summary["idle_power_w"] = summary.get("mean_power_w")
+
+    # The median, not the mean, is what gets subtracted (decided 2026-08-14;
+    # see the robust-idle-statistics note above and METHODOLOGY). The mean is
+    # kept alongside it so the two policies stay comparable from the file.
+    robust = robust_idle_stats([r["power_w"] for r in kept
+                                if r["power_w"] is not None])
+    summary["robust"] = robust
+    summary["idle_stat"] = "median"
+    summary["idle_power_w"] = robust.get("median_w", summary.get("mean_power_w"))
+    summary["idle_power_w_mean"] = summary.get("mean_power_w")
 
     # An idle baseline taken while something is still using the GPU is worse
     # than none: it would be subtracted from every J/token in the series.
+    # Utilisation is the wrong detector for that on this machine -- it reads
+    # 19-41% at a genuinely quiescent 20 W because desktop compositing counts
+    # as utilisation while costing almost nothing -- so the excursion fraction
+    # and the robust spread are reported alongside it and the spread is what
+    # M3 gates on.
     util = summary.get("util_gpu_pct_mean")
     if util is not None and util > 25:
         summary["warning"] = (
@@ -433,6 +537,11 @@ def idle(out_path: str, duration_s: float, interval_ms: int, settle_s: float,
             f"something else is using the card"
         )
         print(f"[power_log] WARNING: {summary['warning']}", file=sys.stderr)
+    if robust.get("excursion_frac"):
+        print(f"[power_log] {robust['excursion_samples']} of "
+              f"{robust['n_samples']} samples above {EXCURSION_W:.0f} W "
+              f"({robust['excursion_frac']:.1%}); median {robust['median_w']} W "
+              f"vs mean {summary.get('mean_power_w')} W", file=sys.stderr)
 
     with open(out_path, "w") as fh:
         json.dump(summary, fh, indent=2)

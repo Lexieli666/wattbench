@@ -14,8 +14,14 @@
 # points results/.state/current_baseline at it. run.sh refuses to run against a
 # baseline older than WATTBENCH_BASELINE_MAX_AGE_H hours (default 12).
 #
+# The number subtracted is the window's MEDIAN, not its mean: idle draw here is
+# bimodal, so the mean is decided by how many brief bursts from an external host
+# consumer land in the window (decided 2026-08-14, see METHODOLOGY). The mean is
+# kept in the file as idle_power_w_mean, and the excursion fraction is recorded.
+#
 # Nothing else may be using the GPU while this runs. The measurement warns if
-# mean utilisation exceeds 25%.
+# mean utilisation exceeds 25%, but on this machine utilisation is not a usable
+# contamination proxy -- judge quiescence by power.
 
 set -euo pipefail
 
@@ -56,5 +62,5 @@ echo "[baseline] close other GPU consumers now if you have not already."
 
 echo "$OUT" > "$STATE_DIR/current_baseline"
 W="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1]))['idle_power_w'])" "$OUT")"
-echo "[baseline] series '$SERIES' baseline = ${W} W -> $(basename "$OUT")"
+echo "[baseline] series '$SERIES' baseline = ${W} W (median) -> $(basename "$OUT")"
 echo "[baseline] run.sh will subtract this until a newer baseline is measured."

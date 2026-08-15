@@ -361,6 +361,8 @@ tail -n 2000 "$SERVER_LOG_LIVE" > "$SERVER_LOG" 2>/dev/null || true
 IDLE_ARGS=()
 IDLE_NOTE_ARGS=()
 if [[ -n "${WB_IDLE_FILE:-}" && -f "$WB_IDLE_FILE" ]]; then
+  # The median of the idle window, for baselines measured from 2026-08-14; for
+  # older ones idle_power_w is the mean and analyze.py recomputes at read time.
   IDLE_W="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1]))['idle_power_w'])" "$WB_IDLE_FILE")"
   IDLE_SERIES="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1])).get('series') or '?')" "$WB_IDLE_FILE")"
   IDLE_AT="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1])).get('measured_at') or '?')" "$WB_IDLE_FILE")"
