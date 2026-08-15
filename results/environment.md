@@ -260,6 +260,42 @@ Session baseline: `results/idle/idle__E2-recheck__20260813T104658.json`, mean
 ~62 W host consumer is still present on this machine and is still the reason the
 idle *mean* is a fragile statistic.
 
+## Addendum, 2026-08-14 — re-verified before the E4 measurements
+
+Same machine, next day, new session. Re-read before touching the GPU, for the
+same reason as the 2026-08-13 check: comparability with E0–E3 is an assumption
+that has to be re-earned each session, not inherited.
+
+| Item | E0–E3 (2026-08-09) | Now (2026-08-14) | Comparable |
+|---|---|---|---|
+| Card / VRAM | RTX 4090, 24564 MiB | same | yes |
+| Driver (host) | 595.95 | 595.95 | yes |
+| Power limit (current/default/max) | 450 / 450 / 450 W | same | yes |
+| Kernel | 6.6.114.1-microsoft-standard-WSL2 | same | yes |
+| Python / vLLM / torch | 3.12.13 / 0.26.0 / 2.11.0+cu130 | same | yes |
+| matplotlib (analysis) | 3.11.1 | 3.11.1 | yes |
+| RAM visible to WSL | 31 GiB | 31 GiB | yes |
+| ext4 free | 879 GB | 813 GB (HF cache 61 GB) | n/a |
+
+**Nothing that affects comparability changed.** E4 therefore joins the E0–E3
+series rather than starting a new one.
+
+GPU state at the check: 19.2–20.4 W, SM clocks pinned at the 210 MHz floor,
+1.95 GiB VRAM held by the desktop, and **no compute processes**
+(`--query-compute-apps` empty). Utilisation read 0–27% over the same six
+samples, which is again why this project judges quiescence by power.
+
+Session baseline: `results/idle/idle__E4__20260814T234054.json`, mean
+**22.657 W**, median 20.10 W, p95 50.91 W, max 65.90 W. That is the eleventh
+committed baseline and the eleventh to show the same bimodality — median inside
+the 18.7–22.2 W band, mean pulled up by intermittent ~50–66 W excursions from a
+host consumer this project does not control. The open baseline-statistic
+question (STATUS.md) is unchanged by it.
+
+One field-name note for anyone reproducing: this driver's WSL stub rejects
+`nvidia-smi --query-gpu=... -l N -c M` for the field set used here; loop in the
+shell instead. `power_log.py` polls per-sample and is unaffected.
+
 ## Things to keep true across runs
 
 - Close other GPU consumers before a measured run (plan §2). The desktop's
