@@ -286,11 +286,20 @@ GPU state at the check: 19.2–20.4 W, SM clocks pinned at the 210 MHz floor,
 samples, which is again why this project judges quiescence by power.
 
 Session baseline: `results/idle/idle__E4__20260814T234054.json`, mean
-**22.657 W**, median 20.10 W, p95 50.91 W, max 65.90 W. That is the eleventh
-committed baseline and the eleventh to show the same bimodality — median inside
-the 18.7–22.2 W band, mean pulled up by intermittent ~50–66 W excursions from a
-host consumer this project does not control. The open baseline-statistic
-question (STATUS.md) is unchanged by it.
+**22.657 W**, median 20.10 W, p95 50.91 W, max 65.90 W. That is the **twelfth**
+committed baseline, and it reproduces the documented bimodality: its median sits
+inside the 18.7–22.2 W band that all twelve share, while 7.9% of its samples are
+excursions above 40 W from a host consumer this project does not control, which
+is what pulls the mean up.
+
+That baseline is also what settled the open baseline-statistic question the same
+evening (METHODOLOGY, "the idle *mean* is not a robust statistic here"): the
+policy is now median subtraction. A second E4 baseline was measured 16 minutes
+later under the new code — `idle__E4__20260814T235651.json`, median 20.21 W,
+mean 20.50 W — and that window came back **completely excursion-free**. Two
+windows on the same idle machine a quarter of an hour apart, one 7.9 % dirty and
+one 0 %, is the clearest single demonstration of why "re-measure until the window
+is clean" is a lottery rather than a protocol. E4 runs subtract the later one.
 
 One field-name note for anyone reproducing: this driver's WSL stub rejects
 `nvidia-smi --query-gpu=... -l N -c M` for the field set used here; loop in the

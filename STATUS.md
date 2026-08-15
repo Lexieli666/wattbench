@@ -1,6 +1,6 @@
 # Status and remaining work
 
-Updated 2026-08-11. Everything below is recoverable from the repo alone.
+Updated 2026-08-14. Everything below is recoverable from the repo alone.
 
 ## Done (measured, committed, analysed)
 
@@ -21,48 +21,57 @@ Regenerate every table and plot from raw data:
 ~/wattbench-venv/bin/python ./analyze.py all
 ```
 
+## Closed since 2026-08-11
+
+1. **The idle-baseline statistic is decided: subtract the median.** Owner's
+   decision, 2026-08-14, applied in one re-analysis pass. Twelve baselines over
+   six days all have a median in 18.7–22.2 W while their means range
+   18.8–27.9 W; the excursions that move the mean are 1.7–4.0 s bursts recurring
+   every ~30–50 s, and the longest excursion-free stretch inside a contaminated
+   window is 44–99 s against a 130 s measurement, so "re-measure until clean" is
+   a lottery, not a protocol. Effect across 47 runs: median +0.03%, max +2.56%;
+   in the published tables only `e1_sweep.md`'s J/tok-net column moves, in the
+   third significant figure of two rows. Rationale, evidence and limits are in
+   METHODOLOGY §"The idle *mean* is not a robust statistic here".
+
+   The M3 gate moved with it: `(p95 − min)/mean < 0.35` failed four in-use
+   baselines once the corpus grew to twelve, because on a bimodal window the p95
+   *is* the excursion. It is now `IQR/median < 0.35`, which reads 2.1–15.8% over
+   the same twelve. M3 is back to 0 failures.
+
+   Raw J/token, the E3 frontier and the E5 cost model were and remain
+   baseline-independent.
+
+2. **The two provisional E2 r16 points are re-measured** (2026-08-13). The 18%
+   BF16 outlier does not reproduce: 1605.9 tok/s against the withdrawn 1262.4,
+   inside the five-run consensus of 1535–1614. The field that settles it is
+   `sw_power_cap_frac` — 93–95% in every healthy saturated BF16 run, 55.6% in
+   the outlier, 94.2% in the re-measurement. On clean same-session data the two
+   arms are at **+0.1% throughput, i.e. parity**, so int4's saturated advantage
+   on this card is 0–7% depending on how load is applied, not the withdrawn
+   +21.7%. Full account in `results/tables/e2_r16_anomaly.md`.
+
 ## Remaining
 
-1. **Decide the idle-baseline statistic.** Open question, not a defect to fix
-   blindly — see METHODOLOGY §"the idle *mean* is not a robust statistic". Idle
-   draw here is bimodal: every one of the ten committed baselines has a median
-   of 18.7–22.2 W, but the mean ranges 18.8–27.9 W depending on how many ~62 W
-   excursions from an intermittent host consumer land in the 130 s window.
-   Re-measuring does not fix it — the E3 baseline was re-measured and came back
-   *worse* (27.878 vs 24.558 W) with a *lower* median. Options: subtract the
-   median rather than the mean, or require a window with zero samples above
-   40 W. Either changes every `*_incremental` figure across E0–E5 and the M3
-   energy validation, so it needs a deliberate decision and a re-analysis pass,
-   not a quiet edit.
+1. **M8 / E4 stack comparison.** vLLM vs. llama.cpp server at concurrency 1, 8
+   and 32, per plan §4 E4. In progress as of 2026-08-15. SGLang stays optional
+   and default-skipped. The caveat belongs in every E4 table and plot: GGUF
+   Q4_K_M and AWQ are different quantization formats, so this compares **stacks
+   at their native int4**, not identical weights.
 
-   This affects **only** incremental J/token. Raw J/token, the E3 frontier and
-   the E5 cost model are baseline-independent. The E3 runs themselves are clean:
-   the 7B rung re-measured an hour later under a different baseline came back
-   within **0.13% on power and 0.02% on J/token**
-   (`e3_7b_awq_chat_r4_recheck`), against E0's 0.16% unsaturated bar.
-
-2. **Re-measure two provisional points.** `configs/e2/bf16/r16.yaml` and
-   `configs/e2/awq/r16.yaml`. E2's BF16 r16 is an 18% outlier against four other
-   measurements of the same config — see `results/tables/e2_r16_anomaly.md`. Run
-   with the GPU otherwise idle:
-
-   ```bash
-   ./baseline.sh E2-recheck
-   ./run.sh --force configs/e2/bf16/r16.yaml
-   ./run.sh --force configs/e2/awq/r16.yaml
-   ```
-
-   Until then the r16 row of the ablation table is provisional and the
-   defensible saturated throughput figure is the concurrency ladder's c256
-   point (+6.8%), not the withdrawn +21.7%.
+2. **Close v0.1**: regenerate from raw, trace every README number to a raw file
+   or a dated source, tag.
 
 ## Rules that bit hard here — do not relax them
 
 - **Never run a download during a measured run.** Measured: TTFT p95 +819%,
   while throughput and energy look almost normal. Corrupted data that looks
   clean is the failure mode.
-- **A fresh idle baseline per session.** Observed drift 19.0–25.7 W across
-  sessions; one baseline was contaminated (10.8% GPU util while "idle").
+- **A fresh idle baseline per session, and subtract its median.** Twelve
+  baselines: medians 18.7–22.2 W, means 18.8–27.9 W. The gap is an external host
+  consumer, not the card. Two E4 windows sixteen minutes apart came back 7.9%
+  and 0.0% contaminated, which is why the statistic has to be robust rather than
+  the window clean.
 - **Never reuse a non-idle vLLM server.** A server carrying another run's
   requests measured 33 ms ITL at 192 W where a fresh one measured 17 ms at
   312 W. `run.sh` now gates on quiescence.

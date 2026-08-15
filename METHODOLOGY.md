@@ -290,43 +290,95 @@ Both figures are reported everywhere:
 
 - **raw J/token** — total GPU-rail energy ÷ output tokens. This is what the card
   costs you to run, including the idle floor you pay whether or not you serve.
-- **incremental J/token** — with `idle_power_W × window_seconds` subtracted.
+- **incremental J/token** — with `idle_median_W × window_seconds` subtracted.
   This is the marginal energy of the serving work itself.
 
 Neither is "the" answer; the raw figure drives the cost model, because an owner
 pays for the idle floor too.
 
-#### Known limitation: the idle *mean* is not a robust statistic on this machine
+#### The idle *mean* is not a robust statistic here, so the median is subtracted
 
-Measured 2026-08-11, across all ten committed baselines. Idle draw here is
-bimodal: a stable quiescent floor, plus brief excursions to ~62 W from an
-intermittent consumer outside this benchmark (the card also drives the Windows
-desktop). **Every** baseline has a median between 18.7 and 22.2 W across three
-days. The mean is decided by how many excursions happen to land in the 130 s
-window:
+**Decided 2026-08-14**, replacing the mean-subtraction used from 2026-08-09 to
+2026-08-13. What changed is which statistic is read out of the idle window; no
+measurement was repeated and no raw file was rewritten.
+
+Idle draw on this machine is bimodal: a stable quiescent floor, plus brief
+excursions from an intermittent consumer outside this benchmark (the card also
+drives the Windows desktop). Across **twelve committed baselines spanning six
+days**, every single one has a median between 18.7 and 22.2 W, while the mean
+ranges 18.8–27.9 W depending on how many excursions land in the 130 s window:
 
 | | baselines | samples > 40 W | mean W | median W |
 |---|---|---|---|---|
 | quiet window | E0E1, E0, E1, E2 ×2 | 0 % | 18.8–20.6 | 18.7–20.6 |
-| excursions present | E0-sat, E3, E3-clean, m1-smoke, E1-dltest | 1.6–16.9 % | 21.5–27.9 | 20.3–22.2 |
+| excursions present | m1-smoke, E0-sat, E1-dltest, E3, E3-clean, E2-recheck, E4 | 1.6–16.9 % | 21.5–27.9 | 20.0–22.2 |
 
-Two consequences, both stated rather than smoothed:
+The excursions have structure, measured from the committed sample traces:
+**1.7–4.0 s bursts to 50–66 W, recurring every ~30–50 s**. That is what settles
+the choice between the two candidate policies:
 
-- Re-measuring does not reliably fix it. The E3 baseline was re-measured
-  specifically to replace a suspect one, and came back **worse** — 27.878 W
-  against 24.558 W — despite a *lower* median (20.41 vs 22.16 W).
-- The 25 % utilisation guard does not catch it, and cannot. On this machine
-  `util_gpu_pct` reads 19–41 % at a genuinely quiescent ~20 W with SM clocks
-  pinned at their 210 MHz floor, because desktop compositing registers as
+- **Requiring an excursion-free window is not a protocol on this machine.** The
+  longest excursion-free stretch inside a contaminated window is 44–99 s, always
+  shorter than the 130 s measurement, so no amount of re-measuring produces a
+  clean baseline while the consumer is active — it is a lottery on which session
+  you are in. Re-measuring also demonstrably backfires: the E3 baseline was
+  re-measured specifically to replace a suspect one and came back **worse**
+  (27.878 vs 24.558 W) despite a *lower* median. And the rule would delete
+  evidence: 13 of 47 runs would lose their incremental figure, including all six
+  E3 rungs, all three E0-sat repeats and both E2 r16 points.
+- **The median is stable across every window measured**, contaminated or not, and
+  keeps every measured point reportable.
+
+What the change actually does to the numbers, recomputed across all 47 runs:
+**median +0.03 %, maximum +2.56 %**. The 34 runs on excursion-free baselines move
+by less than 0.05 %. In the published tables only `e1_sweep.md`'s "J/tok net"
+column moves at all, in the third significant figure of two rows.
+
+The evidence that the median is *better*, not merely different: 7B AWQ was
+measured twice, an hour apart, against two different baselines. Raw J/token
+agrees to **0.02 %**; the idle-subtracted figure disagreed by **1.12 % under the
+mean and 0.60 % under the median**. Halving a disagreement that raw energy says
+should not exist is the whole case. The residual 0.60 % is not excursion noise —
+the E3 session's quiescent floor genuinely sat ~2 W higher (quiescent mean 23.6 W
+against ~20.6 W typical) — and no estimator fixes a floor that really moved.
+
+Two limits of the policy, stated rather than smoothed:
+
+- During a measured run the same host consumer is presumably still bursting,
+  invisible inside a 400 W trace. The mean assumed it ran at exactly the
+  baseline rate; the median assumes it did not run at all. Neither is exactly
+  right, and **the gap between the two policies, ≤2.6 % of incremental, is the
+  bound on that ambiguity**. It is not resolvable from this machine's telemetry.
+- The 25 % utilisation guard does not catch contamination and cannot. On this
+  machine `util_gpu_pct` reads 19–41 % at a genuinely quiescent ~20 W with SM
+  clocks pinned at their 210 MHz floor, because desktop compositing registers as
   utilisation while costing almost no power. Utilisation is the wrong proxy
-  here; power is the signal.
+  here; power is the signal. Utilisation is now reported but no longer gates.
 
-This affects only **incremental** J/token. Raw J/token, the E3 frontier table,
-and the E5 cost model are all baseline-independent and unaffected. Whether
-idle subtraction should use the median instead of the mean — or require a
-window with zero samples above 40 W — is an open decision, not settled here,
-because it would change every incremental figure in E0–E5 and the M3 energy
-validation along with them.
+**Unaffected by any of this:** raw J/token, the E3 frontier table, and the E5
+cost model, all of which are baseline-independent by construction.
+
+##### The M3 stability gate had to move with it
+
+M3's baseline check tested `(p95 − min) / mean < 0.35`. On a bimodal idle window
+the p95 *is* the excursion, so that statistic read 7–189 % across a corpus whose
+quiescent floor never moved by more than 3.4 W. Run against the full twelve
+baselines it failed four of them — and failing a baseline blocks *all* J/token
+reporting, including the raw figure that the baseline cannot affect.
+
+The gate is now **IQR / median < 0.35**, which reads **2.1–15.8 %** over the same
+twelve. All twelve pass, with the worst at less than half the threshold, so the
+check still has room to catch a window that is genuinely unstable rather than
+merely interrupted. Every baseline additionally records its excursion fraction
+above 40 W, so contamination is visible in the file rather than inferred.
+
+Implementation, for anyone auditing: `power_log.py` writes the median as
+`idle_power_w` (keeping the mean as `idle_power_w_mean`) for baselines measured
+from 2026-08-14; for the eleven earlier ones `analyze.py` reads the median that
+was already stored as `power_w.p50` and recomputes the incremental figure at
+analysis time. Raw results keep the value the harness computed on the day, the
+same treatment goodput got when its definition was corrected — the correction
+lives in git and in this document, not in an edited raw file.
 
 ### Throttle detection
 
