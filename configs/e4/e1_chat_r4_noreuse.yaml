@@ -1,0 +1,29 @@
+# Does HTTP connection reuse contaminate E0-E3 as well?
+#
+# E4 turned up something larger than E4: adding `Connection: close` to the vLLM
+# arm at concurrency 1 took throughput from 61.4 to 148.9 tok/s, ITL p50 from
+# 12.43 to 6.02 ms, and mean power from 185 to 300 W on identical work. Power is
+# server-side, so this is not a mis-timed client: with connection reuse the GPU
+# was genuinely idle waiting, and the same work cost 33% more energy.
+#
+# **Every E0-E3 point ran with connection reuse**, because the flag did not
+# exist in the harness then. If the effect is present at a fixed offered *rate*
+# as well as at a fixed concurrency, then E1's latency and goodput numbers are
+# inflated and the SLO conclusions move.
+#
+# This is the control that answers it: `e1_chat_7b_bf16_r4` re-run with the only
+# change being the transport. The committed original is
+# e1_chat_7b_bf16_r4__20260810T*.json (506.5 out tok/s, TTFT p50 88.06 ms,
+# 343.7 W, 0.702 J/tok). A match means E0-E3 stand and the effect is specific to
+# the concurrency-limited regime; a large gap is a finding that outranks E4.
+#
+# Note the arrivals are Poisson at a fixed rate here, not a concurrency cap, so
+# achieved throughput is pinned by the offered rate either way. The columns that
+# can move are latency, goodput and energy.
+extends: ../e1/chat/r4.yaml
+experiment: E4-control
+point_id: e1_chat_7b_bf16_r4_noreuse
+description: Transport control -- E1 chat 4 req/s with HTTP connection reuse disabled
+
+load:
+  extra_args: ['--header', 'Connection=close']

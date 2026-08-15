@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "point_id": "e4_llamacpp_gguf_c8_noreuse",
+  "status": "bench_no_output",
+  "note": "load generator produced no output; kept as a failure record"
+}

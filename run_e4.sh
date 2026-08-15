@@ -47,10 +47,18 @@ POINTS=(
   configs/e4/vllm_c1.yaml
   configs/e4/vllm_c8.yaml
   configs/e4/vllm_c32.yaml
+  configs/e4/vllm_c32_seqs512.yaml
   configs/e4/llamacpp_c1.yaml
   configs/e4/llamacpp_c8.yaml
   configs/e4/llamacpp_c32.yaml
 )
+
+# Both arms send `Connection: close`. llama.cpp leaves cpp-httplib's 5 s
+# keep-alive timeout in place, which closed pooled sockets underneath the client
+# and cost 10.9% of requests at c8; the transport is set identically on both
+# sides rather than only on the arm that needed it. See
+# configs/e4/_base_e4_vllm.yaml.
+FORCE="${WATTBENCH_E4_FORCE:-}"
 
 FAILED=()
 for i in "${!POINTS[@]}"; do
@@ -58,7 +66,8 @@ for i in "${!POINTS[@]}"; do
   # Stop the server after the last vLLM point and after the last point overall,
   # so the two stacks never hold VRAM at the same time.
   extra=()
-  [[ "$cfg" == *vllm_c32* || "$i" == $(( ${#POINTS[@]} - 1 )) ]] && extra=(--stop-server)
+  [[ -n "$FORCE" ]] && extra=(--force)
+  [[ "$cfg" == *vllm_c32_seqs512* || "$i" == $(( ${#POINTS[@]} - 1 )) ]] && extra+=(--stop-server)
   say "=== $cfg"
   if ! "$REPO/run.sh" "${extra[@]}" "$cfg"; then
     say "point FAILED: $cfg (kept as a failure record)"

@@ -1,0 +1,12 @@
+0.00.052.608 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.196.366 W srv  llama_server: -----------------
+0.00.196.379 W srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+0.00.196.379 W srv  llama_server: this can be a security risk (cross-origin attacks)
+0.00.196.379 W srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+0.00.196.379 W srv  llama_server: -----------------
+0.00.197.636 I srv    load_model: loading model '/home/yzhao/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-GGUF/snapshots/bb5d59e06d9551d752d08b292a50eb208b07ab1f/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf'
+0.00.417.595 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.01.447.046 I cmn          init: llama threadpool init, n_threads = 16
+0.01.503.605 I srv    load_model: initializing, n_slots = 8, n_ctx_slot = 4096, kv_unified = 'false'
+0.01.506.318 I srv  llama_server: model loaded
+0.01.506.336 I srv  llama_server: listening on http://127.0.0.1:8000

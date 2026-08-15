@@ -42,7 +42,9 @@ load:
   seed: 0
   ignore_eos: true
   temperature: 0.0
-  extra_args: []
+  # Both E4 arms disable HTTP connection reuse; see configs/e4/_base_e4_vllm.yaml
+  # for why, and e4_llamacpp_gguf_c8_noreuse for the measurement that showed it.
+  extra_args: ['--header', 'Connection=close']
 
 protocol:
   warmup_s: 30

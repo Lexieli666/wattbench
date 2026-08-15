@@ -1,4 +1,4 @@
-extends: ../_base_7b_awq.yaml
+extends: _base_e4_vllm.yaml
 experiment: E4
 point_id: e4_vllm_awq_c32
 description: E4 stack comparison, vLLM + AWQ int4, concurrency 32, chat shape
