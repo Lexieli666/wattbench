@@ -1,0 +1,22 @@
+# M8 harness smoke test for the second stack. Short run: proves the llama.cpp
+# path end to end (start -> health -> warmup -> power window -> /metrics scrape
+# -> integrate -> assemble -> sanity) before an hour of measured points depends
+# on it. Nothing here is reportable.
+extends: ../_base_7b_gguf.yaml
+experiment: smoke
+point_id: smoke_llamacpp_gguf_c4
+description: harness smoke test, llama.cpp + GGUF Q4_K_M, concurrency 4
+
+server:
+  parallel: 4
+
+load:
+  request_rate: inf
+  max_concurrency: 4
+  num_prompts: 40
+
+protocol:
+  warmup_s: 10
+  warmup_prompts: 8
+  min_duration_s: 20
+  min_requests: 20

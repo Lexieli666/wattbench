@@ -25,6 +25,10 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="${WATTBENCH_VENV:-$HOME/wattbench-venv}"
 PY="$VENV/bin/python"
 VLLM="$VENV/bin/vllm"
+# E4's second stack. Built from source (see SETUP-WSL2.md); the exact commit is
+# recorded in every llama.cpp run's provenance.
+LLAMACPP_BIN="${WATTBENCH_LLAMACPP_BIN:-$HOME/src/llama.cpp/build/bin/llama-server}"
+LLAMACPP_SRC="${WATTBENCH_LLAMACPP_SRC:-$HOME/src/llama.cpp}"
 RAW="$REPO/results/raw"
 STATE_DIR="$REPO/results/.state"
 TMP="${WATTBENCH_TMP:-/tmp/wattbench}"
@@ -81,6 +85,13 @@ mkdir -p "$RAW" "$STATE_DIR" "$TMP"
 
 # --- config -> environment ------------------------------------------------
 eval "$("$PY" "$REPO/harness.py" export-env "$CONFIG")"
+
+if [[ "${WB_STACK:-vllm}" == "llamacpp" ]]; then
+  [[ -x "$LLAMACPP_BIN" ]] || {
+    echo "FATAL: no llama-server at $LLAMACPP_BIN (set WATTBENCH_LLAMACPP_BIN)" >&2
+    exit 1; }
+  export WB_LLAMACPP_BIN="$LLAMACPP_BIN" WB_LLAMACPP_SRC="$LLAMACPP_SRC"
+fi
 
 log() { printf '[run %s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 iso() { date +%Y-%m-%dT%H:%M:%S.%3N; }
@@ -149,17 +160,29 @@ stop_server() {
     fi
     rm -f "$PID_FILE" "$FP_FILE"
   fi
-  # Anything still holding the port would silently serve the wrong model.
+  # Anything still holding the port would silently serve the wrong model --
+  # and in E4 the two stacks share a port, so this covers both by name.
   pkill -f "vllm serve" 2>/dev/null || true
+  # Matched on the binary's path, not its name: a bare "llama-server" pattern
+  # also matches any shell whose command line merely mentions it, including
+  # this one.
+  pkill -f "bin/llama-server" 2>/dev/null || true
   sleep 3
 }
 
 start_server() {
-  log "starting vLLM: $WB_MODEL"
-  log "  flags: $WB_SERVER_ARGS"
-  : > "$SERVER_LOG_LIVE"
-  # setsid so the whole engine process group can be signalled as one.
-  setsid "$VLLM" serve "$WB_MODEL" $WB_SERVER_ARGS >>"$SERVER_LOG_LIVE" 2>&1 &
+  if [[ "${WB_STACK:-vllm}" == "llamacpp" ]]; then
+    log "starting llama.cpp: $WB_MODEL"
+    log "  flags: $WB_SERVER_ARGS"
+    : > "$SERVER_LOG_LIVE"
+    setsid "$LLAMACPP_BIN" $WB_SERVER_ARGS >>"$SERVER_LOG_LIVE" 2>&1 &
+  else
+    log "starting vLLM: $WB_MODEL"
+    log "  flags: $WB_SERVER_ARGS"
+    : > "$SERVER_LOG_LIVE"
+    # setsid so the whole engine process group can be signalled as one.
+    setsid "$VLLM" serve "$WB_MODEL" $WB_SERVER_ARGS >>"$SERVER_LOG_LIVE" 2>&1 &
+  fi
   local pid=$!
   echo "$pid" > "$PID_FILE"
   echo "$WB_SERVER_FP" > "$FP_FILE"
@@ -194,11 +217,15 @@ start_server() {
 # no error anywhere. Observed for real: a reused server measured 33.25ms ITL at
 # 192W where a fresh one measured 16.90ms at 312W for the identical config.
 server_quiescent() {
-  local running waiting
-  running="$(curl -sf -m 5 "http://127.0.0.1:${WB_PORT}/metrics" 2>/dev/null \
-    | awk '/^vllm:num_requests_running/ {print $2; exit}')"
-  waiting="$(curl -sf -m 5 "http://127.0.0.1:${WB_PORT}/metrics" 2>/dev/null \
-    | awk '/^vllm:num_requests_waiting[{ ]/ {print $2; exit}')"
+  local metrics running waiting
+  metrics="$(curl -sf -m 5 "http://127.0.0.1:${WB_PORT}/metrics" 2>/dev/null)" || return 1
+  if [[ "${WB_STACK:-vllm}" == "llamacpp" ]]; then
+    running="$(awk '/^llamacpp:requests_processing[{ ]/ {print $2; exit}' <<<"$metrics")"
+    waiting="$(awk '/^llamacpp:requests_deferred[{ ]/ {print $2; exit}' <<<"$metrics")"
+  else
+    running="$(awk '/^vllm:num_requests_running/ {print $2; exit}' <<<"$metrics")"
+    waiting="$(awk '/^vllm:num_requests_waiting[{ ]/ {print $2; exit}' <<<"$metrics")"
+  fi
   [[ -z "$running" || -z "$waiting" ]] && return 1
   awk -v r="$running" -v w="$waiting" 'BEGIN{exit !(r+0==0 && w+0==0)}'
 }
@@ -263,8 +290,13 @@ bench_args() {
   local nprompts="$1" out_json="$2"
   local -a a=(
     bench serve
-    --backend vllm
-    --model "$WB_MODEL"
+    # vLLM's native backend for the vLLM arm; the OpenAI-compatible path for
+    # anything else. Both send to /v1/completions, and both build their
+    # prompts from the same tokenizer, so the two arms of E4 receive the same
+    # token sequences.
+    --backend "${WB_BENCH_BACKEND:-vllm}"
+    --model "$WB_SERVED_MODEL_NAME"
+    --tokenizer "$WB_TOKENIZER"
     --host 127.0.0.1 --port "$WB_PORT"
     --endpoint /v1/completions
     --dataset-name "$WB_DATASET"

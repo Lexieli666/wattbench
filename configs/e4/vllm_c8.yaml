@@ -1,0 +1,12 @@
+extends: ../_base_7b_awq.yaml
+experiment: E4
+point_id: e4_vllm_awq_c8
+description: E4 stack comparison, vLLM + AWQ int4, concurrency 8, chat shape
+
+load:
+  request_rate: inf
+  max_concurrency: 8
+  num_prompts: 800
+
+protocol:
+  warmup_prompts: 96

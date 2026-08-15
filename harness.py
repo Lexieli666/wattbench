@@ -17,6 +17,7 @@ to be inside it.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -40,6 +41,10 @@ REPO = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULTS = {
     "server": {
+        # "vllm" or "llamacpp". Everything below the divider is read only by
+        # the stack it names; a vLLM config that never mentions llama.cpp is
+        # unaffected by its presence, which is why E0-E3 need no re-running.
+        "stack": "vllm",
         "model": None,
         "revision": None,
         "quantization": None,
@@ -51,6 +56,20 @@ DEFAULTS = {
         "port": 8000,
         "extra_args": [],
         "load_timeout_s": 900,
+        # --- llamacpp only ---------------------------------------------------
+        "gguf_repo": None,        # HF repo holding the GGUF
+        "gguf_file": None,        # filename within it, e.g. *-q4_k_m.gguf
+        "n_gpu_layers": 99,       # 99 == every layer on the GPU
+        "parallel": 1,            # server-side slots; must cover concurrency
+        "ctx_size": None,         # TOTAL KV context, split across slots
+        "cont_batching": True,
+        "flash_attn": "auto",
+        # The load generator needs a tokenizer to build the random dataset and
+        # to count tokens. A GGUF path is not an HF repo, so it is named here
+        # and is the same tokenizer the vLLM arm uses -- identical prompts by
+        # construction, which is what makes the two arms comparable at all.
+        "tokenizer": None,
+        "served_model_name": None,
     },
     "load": {
         "backend": "vllm",
@@ -118,9 +137,11 @@ def server_fingerprint(cfg: dict) -> str:
     """Identity of the served model+flags. Points sharing it can share a server."""
     s = cfg["server"]
     keys = [
-        "model", "revision", "quantization", "dtype", "max_model_len",
+        "stack", "model", "revision", "quantization", "dtype", "max_model_len",
         "gpu_memory_utilization", "max_num_seqs", "enable_prefix_caching",
         "extra_args", "port",
+        "gguf_repo", "gguf_file", "n_gpu_layers", "parallel", "ctx_size",
+        "cont_batching", "flash_attn",
     ]
     payload = json.dumps({k: s.get(k) for k in keys}, sort_keys=True, default=str)
     import hashlib
@@ -146,6 +167,61 @@ def server_args(cfg: dict) -> list[str]:
         args += ["--enable-prefix-caching"]
     else:
         args += ["--no-enable-prefix-caching"]
+    args += [str(x) for x in (s.get("extra_args") or [])]
+    return args
+
+
+def gguf_path(cfg: dict) -> str:
+    """Local path of the GGUF weights, resolved from the HF cache.
+
+    Resolved rather than downloaded: a fetch here would run inside a measured
+    window, and this project has measured what that does (TTFT p95 +819%).
+    Missing weights are a hard error telling you to fetch them first.
+    """
+    s = cfg["server"]
+    repo, fname = s.get("gguf_repo"), s.get("gguf_file")
+    if not (repo and fname):
+        raise SystemExit("[harness] llamacpp stack needs server.gguf_repo and "
+                         "server.gguf_file")
+    hf_home = os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
+    root = os.path.join(hf_home, "hub", "models--" + repo.replace("/", "--"))
+    hits = sorted(glob.glob(os.path.join(root, "snapshots", "*", fname)))
+    if not hits:
+        raise SystemExit(
+            f"[harness] {fname} not found under {root}. Fetch it before the run:\n"
+            f"  HF_HUB_DISABLE_XET=1 hf download {repo} --include '{fname}'")
+    return hits[-1]
+
+
+def llamacpp_server_args(cfg: dict) -> list[str]:
+    """Flags for `llama-server`.
+
+    Deliberately minimal: each stack is run at its own defaults except where
+    the *workload* forces a choice (how many concurrent slots, how much KV
+    context, all layers on the GPU). Tuning one stack and not the other would
+    measure the tuning.
+    """
+    s = cfg["server"]
+    ctx = s.get("ctx_size")
+    if ctx is None:
+        # llama.cpp divides its context across slots, so a per-slot budget has
+        # to be multiplied out. Default: the same 4096 per sequence vLLM gets
+        # from max_model_len.
+        ctx = int(s.get("max_model_len") or 4096) * int(s.get("parallel") or 1)
+    args = [
+        "-m", gguf_path(cfg),
+        "--host", "127.0.0.1",
+        "--port", str(s["port"]),
+        "-ngl", str(s.get("n_gpu_layers", 99)),
+        "-c", str(ctx),
+        "--parallel", str(s.get("parallel") or 1),
+        "--metrics",                      # /metrics, scraped by kv_log.py
+        "--alias", str(s.get("served_model_name") or s["model"]),
+    ]
+    if s.get("flash_attn") is not None:
+        args += ["--flash-attn", str(s["flash_attn"])]
+    if s.get("cont_batching") is False:
+        args += ["--no-cont-batching"]
     args += [str(x) for x in (s.get("extra_args") or [])]
     return args
 
@@ -193,13 +269,25 @@ def warmup_prompts(cfg: dict) -> int:
 def export_env(cfg: dict) -> str:
     """Emit shell exports consumed by run.sh."""
     s, l, p = cfg["server"], cfg["load"], cfg["protocol"]
+    stack = str(s.get("stack") or "vllm")
+    args = llamacpp_server_args(cfg) if stack == "llamacpp" else server_args(cfg)
+    # The name the endpoint answers to. vLLM serves under the HF repo id; the
+    # llama.cpp arm is given the same string via --alias so the load generator
+    # sends identical request bodies to both.
+    served = str(s.get("served_model_name") or s["model"])
     lines = [
         f"WB_POINT_ID={shlex.quote(str(cfg['point_id']))}",
         f"WB_EXPERIMENT={shlex.quote(str(cfg.get('experiment', 'NA')))}",
+        f"WB_STACK={shlex.quote(stack)}",
         f"WB_MODEL={shlex.quote(str(s['model']))}",
+        f"WB_SERVED_MODEL_NAME={shlex.quote(served)}",
+        f"WB_TOKENIZER={shlex.quote(str(s.get('tokenizer') or s['model']))}",
+        # vLLM's own backend speaks to a vLLM server; anything else is driven
+        # through the OpenAI-compatible path, which llama.cpp implements.
+        f"WB_BENCH_BACKEND={shlex.quote('vllm' if stack == 'vllm' else 'openai')}",
         f"WB_PORT={shlex.quote(str(s['port']))}",
         f"WB_SERVER_FP={shlex.quote(server_fingerprint(cfg))}",
-        f"WB_SERVER_ARGS={shlex.quote(' '.join(shlex.quote(a) for a in server_args(cfg)))}",
+        f"WB_SERVER_ARGS={shlex.quote(' '.join(shlex.quote(a) for a in args))}",
         f"WB_LOAD_TIMEOUT_S={shlex.quote(str(s['load_timeout_s']))}",
         f"WB_WARMUP_S={shlex.quote(str(p['warmup_s']))}",
         f"WB_WARMUP_PROMPTS={shlex.quote(str(warmup_prompts(cfg)))}",
@@ -320,6 +408,7 @@ def provenance() -> dict:
             "flashinfer": pkg_version("flashinfer-python") or pkg_version("flashinfer"),
             "xformers": pkg_version("xformers"),
             "torch_cuda": _torch_cuda(),
+            **({"llamacpp": _llamacpp_build()} if os.environ.get("WB_LLAMACPP_BIN") else {}),
         },
         "harness_git": git_state(),
         "env": {
@@ -330,6 +419,31 @@ def provenance() -> dict:
             if os.environ.get(k)
         },
     }
+
+
+def _llamacpp_build() -> dict:
+    """Version of the llama.cpp binary actually about to serve.
+
+    llama.cpp has no release cadence to cite, so the source commit is the
+    version: `llama-server --version` prints the build number and commit it was
+    compiled from, which is what makes an E4 number reproducible.
+    """
+    binary = os.environ.get("WB_LLAMACPP_BIN", "")
+    out = sh([binary, "--version"]) if binary else ""
+    build = {"binary": binary, "version_output": out}
+    m = re.search(r"commit\s+([0-9a-f]{7,40})", out)
+    if m:
+        build["commit"] = m.group(1)
+    # The binary's own build number is 1 here because it was compiled from a
+    # shallow clone with no tags, so the source tree is the authority on which
+    # commit this is.
+    src = os.environ.get("WB_LLAMACPP_SRC", "")
+    if src and os.path.isdir(src):
+        build["source_dir"] = src
+        build["source_commit"] = sh(["git", "-C", src, "rev-parse", "HEAD"])
+        build["source_commit_date"] = sh(
+            ["git", "-C", src, "log", "-1", "--format=%cI"])
+    return build
 
 
 def _torch_cuda() -> str | None:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sample vLLM's Prometheus endpoint during a run.
+"""Sample a serving stack's Prometheus endpoint during a run.
 
 Plan §4 E1 asks for KV-cache utilisation at every load point, and identifies
 saturation as "growing queue" -- neither is visible in the load generator's
@@ -8,6 +8,13 @@ power logger and is summarised over the same measurement window.
 
   kv_log.py poll --port 8000 --out run.kv.csv --interval 2
   kv_log.py summarize --log run.kv.csv --start ISO --end ISO
+
+Both stacks in this project are scraped through the same columns: llama.cpp's
+`llamacpp:*` names are mapped onto vLLM's where they mean the same thing (see
+ALIASES), so E4 can put the two side by side without a second code path in
+every table. Where a stack genuinely has no counterpart the column is simply
+absent -- llama.cpp does not preempt, so it reports no preemption counter, and
+that shows up as "not measured" rather than as zero.
 
 Scraping is one small HTTP GET every two seconds against a text endpoint. It is
 constant across every point in a series, so it cannot bias a comparison between
@@ -43,7 +50,31 @@ COUNTERS = [
 ]
 FIELDS = ["timestamp"] + GAUGES + COUNTERS
 
-LINE_RE = re.compile(r"^(?P<name>vllm:[a-z_0-9]+)(?:\{[^}]*\})?\s+(?P<value>[-0-9.eE+]+)$")
+# llama.cpp's server exposes the same quantities under its own names. Mapping
+# them here rather than in the tables keeps one schema on disk for both stacks.
+#
+# Two columns stay empty for llama.cpp, and both absences are findings rather
+# than gaps to paper over with a zero:
+#
+#   preemptions        llama.cpp has no such counter because it does not
+#                      preempt. A request that finds no free slot is deferred
+#                      before it starts, never evicted after it starts.
+#   KV utilisation     this build (b1-6b4344e) exports no kv_cache_usage_ratio,
+#                      and the quantity would not mean the same thing anyway:
+#                      llama.cpp partitions its KV into fixed per-slot budgets
+#                      rather than sharing one pool the way vLLM does. The
+#                      alias is kept for forward compatibility and currently
+#                      never matches.
+ALIASES = {
+    "llamacpp:kv_cache_usage_ratio": "vllm:kv_cache_usage_perc",
+    "llamacpp:requests_processing": "vllm:num_requests_running",
+    "llamacpp:requests_deferred": "vllm:num_requests_waiting",
+    "llamacpp:prompt_tokens_total": "vllm:prompt_tokens_total",
+    "llamacpp:tokens_predicted_total": "vllm:generation_tokens_total",
+}
+
+LINE_RE = re.compile(
+    r"^(?P<name>(?:vllm|llamacpp):[a-z_0-9]+)(?:\{[^}]*\})?\s+(?P<value>[-0-9.eE+]+)$")
 
 
 def scrape(url: str, timeout: float = 5.0) -> dict[str, float]:
@@ -56,7 +87,7 @@ def scrape(url: str, timeout: float = 5.0) -> dict[str, float]:
         m = LINE_RE.match(line.strip())
         if not m:
             continue
-        name = m.group("name")
+        name = ALIASES.get(m.group("name"), m.group("name"))
         if name not in GAUGES and name not in COUNTERS:
             continue
         try:
