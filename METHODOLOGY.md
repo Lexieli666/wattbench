@@ -593,11 +593,54 @@ third quantization format and a third set of serving defaults to a comparison
 that is already carrying one large caveat. Recorded as a deliberate omission
 rather than an oversight.
 
-**Dropped requests are shown, not excluded.** The llama.cpp arm loses the
-occasional request to a client-side `ServerDisconnectedError` on connection
-reuse — an HTTP keep-alive race, not a model or capacity error. Each one trips
-the `all_requests_completed` sanity check, and the completed/issued count is
-printed in the E4 table so the reader can weigh it.
+### The HTTP transport is part of the measurement, and it had to be pinned
+
+This was the largest single measurement error found in the project, and it was
+found by E4 rather than caused by it.
+
+The load generator reuses pooled HTTP connections by default. llama.cpp leaves
+cpp-httplib's five-second keep-alive timeout in place, so the server closes
+connections the client still holds. Under a **fixed concurrency** that is not a
+minor inefficiency:
+
+| with connection reuse | vLLM | llama.cpp |
+|---|---|---|
+| requests dropped @ c8 | 0 | 87 / 800 (10.9%) |
+| requests dropped @ c32 | 0 | 179 / 1600 (11.2%) |
+| throughput lost @ c1 | **−59%** | −0.9% |
+| throughput lost @ c32 | **−44%** | −1.4% |
+
+The two stacks pay in different currencies — llama.cpp in dropped requests,
+vLLM in throughput — which is exactly what makes it dangerous: measured with
+reuse on, llama.cpp appears **2.35× faster than vLLM at concurrency 1**, where
+the two are in fact within 2.2%.
+
+It is not a client-clock artefact. Mean GPU power, which is server-side
+telemetry, moved 185 → 300 W at concurrency 1 on identical work, and integrated
+energy for the same 200 requests fell 78.3 → 53.3 kJ. With reuse, the card was
+genuinely idle waiting on the client.
+
+**The rule this project now follows:** the transport is stated and set
+identically on every arm of a comparison. Both E4 arms send `Connection: close`.
+Setting it only on the arm that visibly suffered would have made the transport a
+variable in the comparison.
+
+**E0–E3 were checked, not assumed.** They all ran with connection reuse, because
+the flag did not exist in the harness then. Re-running `e1_chat_7b_bf16_r4` with
+the transport as the only change moved throughput by 0.04%, energy by 1.4%, and
+goodput not at all — latency was marginally *worse* without reuse, inside E0's
+cross-session drift. The pathology needs a **closed loop**: at a fixed offered
+rate the next request is scheduled by a timer, so a reuse stall overlaps waiting
+that was going to happen anyway; under a concurrency cap the next request cannot
+start until a connection is released, so the stall serialises with generation.
+E1 is open-loop, and is unaffected.
+
+Full account and every number: `results/tables/e4_transport.md`.
+
+**Dropped requests are shown, not excluded.** Each one trips the
+`all_requests_completed` sanity check, and the completed/issued count is printed
+in the E4 table so the reader can weigh it. After the transport was pinned, all
+six E4 points completed every request they issued.
 
 ---
 
