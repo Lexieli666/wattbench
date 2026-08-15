@@ -1,0 +1,20 @@
+# vLLM arm of E4. Identical to the shared AWQ base in every serving flag; the
+# only addition is the transport setting that both E4 arms share.
+#
+# `Connection: close` is sent by the load generator so no HTTP connection is
+# reused. It is here because llama.cpp leaves cpp-httplib's 5 s keep-alive
+# timeout in place, which closes pooled sockets underneath the client and cost
+# 10.9% of requests at c8 and 11.2% at c32 (measured, kept in results/raw/, and
+# proven to be the cause by e4_llamacpp_gguf_c8_noreuse: 200/200 with it off).
+#
+# It is applied to BOTH arms rather than only the one that needed it. A
+# transport difference between the arms would be a difference in the comparison,
+# and on loopback the cost of a fresh connection per request is negligible next
+# to a 512-token prefill.
+extends: ../_base_7b_awq.yaml
+experiment: base
+description: E4 vLLM arm base, AWQ int4, no HTTP connection reuse
+
+load:
+  request_rate: inf
+  extra_args: ['--header', 'Connection=close']

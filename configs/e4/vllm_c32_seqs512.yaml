@@ -1,0 +1,31 @@
+# E4 control point, and the reason it exists:
+#
+# e4_vllm_awq_c32 measured 862 tok/s where E2's concurrency ladder measured
+# 1618 tok/s for the same model, shape and concurrency -- 1.9x apart, with the
+# E4 run showing 2x the TPOT (30.05 vs 15.49 ms) at a *larger* mean batch (27.2
+# vs 19.9) and lower power (260 vs 310 W). Two things differ between those runs:
+#
+#   max_num_seqs   256 (vLLM's default, used by every base config here)
+#                  vs 512 (raised by the E2 ladder so the scheduler, not the
+#                  seq-count cap, would be the limit)
+#   run length     1600 prompts / 238 s vs 256 prompts / 20 s
+#
+# This point changes ONLY max_num_seqs, keeping E4's 1600 prompts. If it returns
+# to ~1600 tok/s the scheduler flag explains the gap; if it stays near 862 the
+# gap is steady state versus a 20 s burst, and E2's ladder numbers are the ones
+# that need reading carefully. Either answer is a finding; neither is assumed.
+extends: _base_e4_vllm.yaml
+experiment: E4-control
+point_id: e4_vllm_awq_c32_seqs512
+description: E4 control, vLLM AWQ concurrency 32 with max_num_seqs 512, chat shape
+
+server:
+  max_num_seqs: 512
+
+load:
+  request_rate: inf
+  max_concurrency: 32
+  num_prompts: 1600
+
+protocol:
+  warmup_prompts: 384

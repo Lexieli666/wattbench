@@ -1,0 +1,30 @@
+# E4 transport control. e4_llamacpp_gguf_c8 dropped 87 of 800 requests (10.9%),
+# every one an aiohttp ServerDisconnectedError, clustered at connection-reuse
+# boundaries. Cause, read from the source rather than guessed: llama.cpp does
+# not override cpp-httplib's defaults, so the server closes any connection idle
+# for CPPHTTPLIB_KEEPALIVE_TIMEOUT_SECOND (5 s) while the client keeps it in its
+# pool; the next reuse of that socket dies.
+#
+# This point changes ONLY the transport -- `Connection: close`, so the client
+# opens a fresh connection per request and never reuses a stale one. If the
+# drops go to zero, the failures are an HTTP artefact rather than a serving
+# limit, and the E4 arms are re-measured with it applied to BOTH stacks so the
+# transport is identical on both sides.
+extends: ../_base_7b_gguf.yaml
+experiment: E4-control
+point_id: e4_llamacpp_gguf_c8_noreuse
+description: E4 transport control, llama.cpp c8 with connection reuse disabled
+
+server:
+  parallel: 8
+
+load:
+  request_rate: inf
+  max_concurrency: 8
+  num_prompts: 200
+  extra_args: ['--header', 'Connection=close']
+
+protocol:
+  warmup_prompts: 48
+  min_duration_s: 30
+  min_requests: 100

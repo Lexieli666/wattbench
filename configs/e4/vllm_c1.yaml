@@ -1,6 +1,6 @@
 # E4, vLLM arm, one request in flight. Concurrency is client-side, so all three
 # vLLM points share one server and one model load.
-extends: ../_base_7b_awq.yaml
+extends: _base_e4_vllm.yaml
 experiment: E4
 point_id: e4_vllm_awq_c1
 description: E4 stack comparison, vLLM + AWQ int4, concurrency 1, chat shape

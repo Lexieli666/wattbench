@@ -15,6 +15,7 @@
 | e1_chat_7b_bf16_r2            | E1             | ok                     | 2       | 1.98    | 253.2     | 127.1       | 1.28    | PASS   | -     |
 | e1_chat_7b_bf16_r32           | E1             | ok                     | 32      | 12.4    | 1591      | 1.075e+05   | 0.283   | PASS   | -     |
 | e1_chat_7b_bf16_r4            | E1             | ok                     | 4       | 3.96    | 506.5     | 158.3       | 0.702   | PASS   | -     |
+| e1_chat_7b_bf16_r4_noreuse    | E4-control     | ok                     | 4       | 3.96    | 506.3     | 169.7       | 0.692   | PASS   | -     |
 | e1_chat_7b_bf16_r8            | E1             | ok                     | 8       | 7.9     | 1012      | 247.2       | 0.399   | FAIL   | -     |
 | e1_chat_7b_bf16_r8_dltest     | E1-dltest      | ok                     | 8       | 7.89    | 1010      | 4327        | 0.349   | PASS   | -     |
 | e1_chat_7b_bf16_r8_quiet      | E1-dltest      | ok                     | 8       | 7.82    | 1001      | 470.8       | 0.375   | PASS   | -     |
@@ -47,6 +48,14 @@
 | e3_3b_awq_chat_r4             | E3             | ok                     | 4       | 3.99    | 510.6     | 58.88       | 0.461   | PASS   | -     |
 | e3_7b_awq_chat_r4             | E3             | ok                     | 4       | 3.98    | 509.8     | 111.3       | 0.65    | PASS   | -     |
 | e3_7b_awq_chat_r4_recheck     | E3-recheck     | ok                     | 4       | 3.98    | 509.8     | 113.1       | 0.65    | PASS   | -     |
+| e4_llamacpp_gguf_c1           | E4             | ok                     | inf     | 1.15    | 145.6     | 69.17       | 2.38    | PASS   | -     |
+| e4_llamacpp_gguf_c32          | E4             | ok                     | inf     | 6.02    | 755.6     | 371.9       | 0.339   | PASS   | -     |
+| e4_llamacpp_gguf_c8           | E4             | ok                     | inf     | 3.84    | 482.8     | 423.4       | 0.791   | PASS   | -     |
+| e4_llamacpp_gguf_c8_noreuse   | E4-control     | ok                     | inf     | 3.83    | 484.6     | 494.6       | 0.747   | PASS   | -     |
+| e4_vllm_awq_c1                | E4             | ok                     | inf     | 1.16    | 148.9     | 59.89       | 2.08    | PASS   | -     |
+| e4_vllm_awq_c32               | E4             | ok                     | inf     | 12.1    | 1542      | 594.5       | 0.262   | PASS   | -     |
+| e4_vllm_awq_c32_seqs512       | E4-control     | ok                     | inf     | 12      | 1539      | 598.5       | 0.263   | PASS   | -     |
+| e4_vllm_awq_c8                | E4             | ok                     | inf     | 6.41    | 820.2     | 366.1       | 0.419   | PASS   | -     |
 | gsm8k_awq                     | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_bf16                    | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_gptq                    | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
@@ -55,4 +64,5 @@
 | limits_context_32b_fine       | E2-limits      | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | limits_context_awq            | E2-limits      | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | limits_context_bf16           | E2-limits      | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
+| smoke_llamacpp_gguf_c4        | smoke          | ok                     | inf     | 3.21    | 410.4     | 423.5       | 0.892   | FAIL   | -     |
 | smoke_qwen1_5b_chat_r4        | smoke          | ok                     | 4       | 3.92    | 501.5     | 3139        | 0.428   | PASS   | -     |

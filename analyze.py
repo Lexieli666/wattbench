@@ -880,12 +880,23 @@ def cmd_stacks(args: argparse.Namespace) -> str:
             "llama.cpp partitions KV into fixed per-slot budgets where vLLM "
             "shares one pool.")
         out.append("")
-        out.append(
-            "A `completed` count below the issued count is a dropped request, "
-            "kept visible rather than quietly excluded; each one also trips "
-            "this project's `all_requests_completed` sanity check. The "
-            "observed failures are client-side `ServerDisconnectedError` on "
-            "connection reuse, not model or capacity errors.")
+        dropped = [r for r in rows if r["status"] == "ok" and r["completed"]
+                   and r["max_concurrency"]
+                   and r["completed"] < (next(
+                       ((res.get("config") or {}).get("load") or {}).get("num_prompts")
+                       for res in results if res.get("point_id") == r["point_id"]) or 0)]
+        if dropped:
+            out.append(
+                "A `completed` count below the issued count is a dropped request, "
+                "kept visible rather than quietly excluded; each one also trips "
+                "this project's `all_requests_completed` sanity check.")
+        else:
+            out.append(
+                "**Every point completed every request it issued.** That is worth "
+                "stating because it was not true on the first attempt: with HTTP "
+                "connection reuse left on, llama.cpp dropped 10.9% of requests at "
+                "concurrency 8 and 11.2% at concurrency 32 — see "
+                "`e4_transport.md`, and the superseded runs in `results/raw/`.")
     return "\n".join(out)
 
 
@@ -1468,17 +1479,21 @@ def plot_stacks(rows: list[dict], path: str) -> bool:
 
     fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.4))
     colour = {"vllm": C["blue"], "llamacpp": C["orange"]}
+    # Endpoint labels are nudged apart per series: at high concurrency the two
+    # energy curves converge to within a few hundredths of a joule and the
+    # labels would otherwise print on top of each other.
+    nudge = {"vllm": -9, "llamacpp": 9}
     for st, pts in series:
         x = [int(p["max_concurrency"]) for p in pts]
         label = f"{STACK_LABEL[st]} ({STACK_FORMAT[st]})"
-        for ax, field, unit in ((axes[0], "out_tok_throughput", ""),
-                                (axes[1], "j_per_out_tok", " J")):
+        for ax, field, fmt_end in ((axes[0], "out_tok_throughput", lambda v: f"{v:,.0f}"),
+                                   (axes[1], "j_per_out_tok", lambda v: f"{v:.3g} J")):
             y = [p[field] for p in pts]
             ax.plot(x, y, marker="o", color=colour[st], label=label,
                     markeredgecolor=SURFACE, markeredgewidth=1.5)
-            ax.annotate(f"{y[-1]:.3g}{unit}", (x[-1], y[-1]),
-                        textcoords="offset points", xytext=(8, 0), va="center",
-                        fontsize=9, color=INK_2)
+            ax.annotate(fmt_end(y[-1]), (x[-1], y[-1]),
+                        textcoords="offset points", xytext=(9, nudge[st]),
+                        va="center", fontsize=9, color=colour[st])
 
     ticks = sorted({int(p["max_concurrency"]) for _, pts in series for p in pts})
     for ax in axes:
