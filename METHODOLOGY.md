@@ -24,6 +24,7 @@ Recorded in **every** run:
 |---|---|
 | Model id **and resolved HF commit** | A model id without a commit is not reproducible |
 | vLLM, PyTorch, transformers, FlashInfer versions | Serving performance is a stack property, not a model property |
+| For llama.cpp runs, the **source commit it was built from** | It has no release cadence to cite, so the commit is the version |
 | Driver version, GPU name, VRAM | |
 | Power limit observed on every sample | A mid-run change invalidates the point (see §3) |
 | SM clock and temperature distribution | Detects throttling that would otherwise look like a slow model |
@@ -533,6 +534,73 @@ Two honesty constraints on those formulas:
 
 ---
 
+## 7b. E4: comparing two serving stacks without pretending they are the same
+
+E4 puts vLLM and llama.cpp side by side at concurrency 1, 8 and 32. One thing
+about it cannot be fixed by careful measurement, so it is stated on every table
+and every plot rather than in a footnote:
+
+> **GGUF Q4_K_M and AWQ int4 are different quantization formats.** E4 compares
+> two stacks each at its own native int4, not one set of weights on two
+> servers. A throughput or energy gap includes whatever the formats themselves
+> cost.
+
+Serving each stack at its native format is the honest choice available: vLLM
+does not serve GGUF well and llama.cpp does not serve AWQ at all, so the
+alternative to different formats is not "same weights" but "no comparison".
+What a reader gets is the question they actually have — *which of these should I
+run on my card* — with the caveat that the answer is a stack-plus-format
+package, not a statement about batching algorithms in isolation.
+
+**Everything else is held equal, deliberately:**
+
+| Held equal | How |
+|---|---|
+| Model family and size | Qwen2.5-7B-Instruct both arms |
+| Traffic shape | 512 in / 128 out, `ignore_eos`, temperature 0 |
+| Prompts | Same tokenizer (`Qwen/Qwen2.5-7B-Instruct`) and same seed, so both arms receive the same token sequences |
+| Load generator | `vllm bench serve` for both; the llama.cpp arm is driven through the OpenAI-compatible path (`--backend openai`) against the same `/v1/completions` endpoint shape |
+| Concurrency | Client-side `--max-concurrency`, identical per point |
+| Session | Both arms measured back to back against one idle baseline, on one driver and one power limit |
+| Energy | Same poller, same integration, same window definition |
+
+**Serving flags are minimal on both sides, on purpose.** Each stack runs at its
+own defaults except where the workload forces a choice: how many concurrent
+slots, how much KV context, and all layers on the GPU. Tuning one arm and not
+the other would measure the tuning. Two consequences worth knowing:
+
+- llama.cpp's `-c` is the **total** KV context divided across `--parallel`
+  slots, where vLLM's `--max-model-len` is **per sequence**. Each llama.cpp slot
+  is therefore given `4096 × parallel` so that a slot gets the same per-sequence
+  budget a vLLM sequence gets.
+- vLLM allocates one shared KV pool sized by `gpu_memory_utilization`;
+  llama.cpp partitions fixed per-slot budgets. This is an architectural
+  difference, not a configuration one, and it is why the two stacks report
+  different things about themselves (below).
+
+**Two columns are empty for llama.cpp, and both absences are findings:**
+
+- **Preemptions.** llama.cpp has no such counter because it does not preempt. A
+  request that finds no free slot is *deferred before it starts*; vLLM admits
+  it and may *evict it after it starts*. Reporting zero for llama.cpp would
+  claim a measurement that does not exist.
+- **KV utilisation.** The build used here exports no `kv_cache_usage_ratio`, and
+  the number would not mean the same thing if it did, per the pool-vs-slots
+  difference above.
+
+**SGLang, the plan's optional third stack, was not run.** It would have added a
+third quantization format and a third set of serving defaults to a comparison
+that is already carrying one large caveat. Recorded as a deliberate omission
+rather than an oversight.
+
+**Dropped requests are shown, not excluded.** The llama.cpp arm loses the
+occasional request to a client-side `ServerDisconnectedError` on connection
+reuse — an HTTP keep-alive race, not a model or capacity error. Each one trips
+the `all_requests_completed` sanity check, and the completed/issued count is
+printed in the E4 table so the reader can weigh it.
+
+---
+
 ## 8. What this project does not claim
 
 - **No capability equivalence.** A locally served Qwen2.5-7B is not a substitute
@@ -541,6 +609,9 @@ Two honesty constraints on those formulas:
   comparable. The only capability evidence produced here is the E2 GSM8K
   exact-match guard, and it licenses no claim beyond that task.
 - **No datacenter comparison.** Single consumer card, cited references only.
+- **No identical-weights stack comparison.** E4's two arms serve different int4
+  formats because that is what each stack natively serves (§7b). It answers
+  "which stack should I run", not "which batching algorithm is faster".
 - **No measured API latency.** Without keys, no hosted endpoint was timed. Every
   measured latency in this repo is self-hosted, and no measured-vs-reported
   latency comparison is made anywhere.

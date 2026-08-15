@@ -1,0 +1,23 @@
+{
+  "available": true,
+  "n_samples": 9,
+  "num_requests_running": {
+    "min": 0.0,
+    "mean": 2.6667,
+    "p95": 4.0,
+    "max": 4.0
+  },
+  "num_requests_waiting": {
+    "min": 0.0,
+    "mean": 0.0,
+    "p95": 0.0,
+    "max": 0.0
+  },
+  "prompt_tokens_total_delta": 14855.0,
+  "generation_tokens_total_delta": 4096.0,
+  "queue_growth": {
+    "first_quarter_mean": 0.0,
+    "last_quarter_mean": 0.0,
+    "growing": false
+  }
+}

@@ -238,6 +238,82 @@ command exits 0. Watch the cache size, not the exit code.
 
 ---
 
+## 6b. Building llama.cpp with CUDA when you have no `sudo` and no CUDA toolkit
+
+E4 needs a second serving stack, and llama.cpp's CUDA backend has to be
+compiled — the project's Linux release archives are CPU-only. That normally
+means `apt install nvidia-cuda-toolkit`, which needs root. It is not required:
+**the CUDA toolkit is installable from PyPI**, and the resulting `nvcc` compiles
+and links a working CUDA build.
+
+The one trap: torch and vLLM leave a *mixed* toolkit behind in their venv —
+here `nvcc` 13.3.73 alongside `cuda-runtime` 13.0.96 — and CCCL's headers refuse
+it outright:
+
+```
+cuda_toolkit.h:41: error: "CUDA compiler and CUDA toolkit headers are incompatible,
+                           please check your include paths"
+```
+
+So build the toolchain in its **own** venv, where the versions resolve
+together, and leave the measurement venv untouched:
+
+```bash
+uv venv ~/wattbench-tools-venv --python 3.12
+uv pip install --python ~/wattbench-tools-venv/bin/python \
+  cmake ninja nvidia-cuda-nvcc nvidia-cuda-runtime nvidia-cuda-cccl \
+  nvidia-cublas nvidia-nvvm nvidia-cuda-crt
+```
+
+The pip layout is not the layout CMake expects, so point a small shim tree at
+it: `bin`, `include` and `nvvm` symlinked to the package, plus a real `lib`
+holding the unversioned `libcublas.so` / `libcudart.so` aliases that the linker
+looks for and a `stubs/libcuda.so` pointing at WSL's own driver library:
+
+```bash
+CU=~/wattbench-tools-venv/lib/python3.12/site-packages/nvidia/cu13
+SHIM=~/src/cuda-shim
+mkdir -p "$SHIM/lib/stubs"
+ln -sfn "$CU/bin" "$SHIM/bin"; ln -sfn "$CU/include" "$SHIM/include"
+ln -sfn "$CU/nvvm" "$SHIM/nvvm"; ln -sfn lib "$SHIM/lib64"
+for f in "$CU"/lib/*; do ln -sf "$f" "$SHIM/lib/$(basename "$f")"; done
+(cd "$SHIM/lib" && for l in libcublas libcublasLt libcudart libnvrtc; do
+   ln -sf "$(ls $l.so.* | head -1)" "$l.so"; done)
+ln -sf /usr/lib/wsl/lib/libcuda.so.1 "$SHIM/lib/stubs/libcuda.so"
+```
+
+Then configure and build. `-rpath-link` is the flag people miss: without it the
+final link cannot resolve `libcudart.so.13` through the intermediate
+`libggml-cuda.so` and fails with a screen of undefined CUDA symbols even though
+every library is present.
+
+```bash
+export PATH=~/wattbench-tools-venv/bin:$PATH
+TCU=~/wattbench-tools-venv/lib/python3.12/site-packages/nvidia/cu13/lib
+LDF="-Wl,-rpath-link,$HOME/src/cuda-shim/lib -Wl,-rpath-link,$TCU -Wl,-rpath,$TCU"
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON \
+  -DCMAKE_CUDA_COMPILER=$HOME/src/cuda-shim/bin/nvcc \
+  -DCMAKE_CUDA_ARCHITECTURES=89 \
+  -DCUDAToolkit_ROOT=$HOME/src/cuda-shim \
+  -DCMAKE_EXE_LINKER_FLAGS="$LDF" -DCMAKE_SHARED_LINKER_FLAGS="$LDF" \
+  -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
+cmake --build build --target llama-server -j 24
+```
+
+`89` is Ada (RTX 40-series); use `86` for Ampere consumer cards. GCC 15.2 is
+accepted by nvcc 13.3 here — no host-compiler downgrade needed.
+
+Two notes for anyone benchmarking llama.cpp against vLLM afterwards:
+
+- **`-c` is the total KV context, divided across `--parallel` slots**, where
+  vLLM's `--max-model-len` is per sequence. To give each of 32 slots the same
+  4096-token budget a vLLM sequence gets, pass `-c 131072`.
+- **Build it before you measure, not between points.** The build saturates the
+  CPU for several minutes; this project's rule against downloads during a
+  measured run applies to compiles for the same reason.
+
+---
+
 ## 7. Before every measured run
 
 - **Close other GPU consumers**, browser hardware acceleration included. The

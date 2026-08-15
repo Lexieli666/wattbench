@@ -1,0 +1,20 @@
+# E4, llama.cpp arm, concurrency 1. --parallel must match the offered
+# concurrency: a request that finds no free slot waits, and llama.cpp reports
+# that as a deferred request rather than a preemption. KV context is
+# max_model_len x parallel, so each slot gets the same 4096 tokens a vLLM
+# sequence gets.
+extends: ../_base_7b_gguf.yaml
+experiment: E4
+point_id: e4_llamacpp_gguf_c1
+description: E4 stack comparison, llama.cpp + GGUF Q4_K_M, concurrency 1, chat shape
+
+server:
+  parallel: 1
+
+load:
+  request_rate: inf
+  max_concurrency: 1
+  num_prompts: 200
+
+protocol:
+  warmup_prompts: 32

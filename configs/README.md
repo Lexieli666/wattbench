@@ -10,6 +10,7 @@ point_id: e1_chat_bf16_r4       # unique; names the raw file. Defaults to filena
 description: free text
 
 server:                         # identity of the served endpoint
+  stack: vllm                   # vllm | llamacpp (E4). Absent means vllm.
   model: Qwen/Qwen2.5-7B-Instruct
   revision: null                # HF commit; resolved and recorded either way
   quantization: null            # null | awq | awq_marlin | gptq_marlin | fp8
@@ -19,8 +20,19 @@ server:                         # identity of the served endpoint
   max_num_seqs: 256
   enable_prefix_caching: false  # off for E0-E3 so numbers are cache-free
   port: 8000
-  extra_args: []                # verbatim extra flags for `vllm serve`
+  extra_args: []                # verbatim extra flags for the server binary
   load_timeout_s: 900
+
+  # llamacpp only; ignored by the vLLM path
+  gguf_repo: Qwen/Qwen2.5-7B-Instruct-GGUF
+  gguf_file: qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf  # first shard
+  tokenizer: Qwen/Qwen2.5-7B-Instruct   # a GGUF path is not an HF repo
+  served_model_name: qwen2.5-7b-instruct-q4_k_m   # --alias, and what the client asks for
+  n_gpu_layers: 99              # 99 == every layer on the GPU
+  parallel: 8                   # server slots; must cover the offered concurrency
+  ctx_size: null                # TOTAL KV context; null => max_model_len * parallel
+  cont_batching: true
+  flash_attn: auto
 
 load:
   dataset: random               # random | sharegpt | sonnet
@@ -48,11 +60,16 @@ slo:                            # goodput definition
 
 ## Server reuse
 
-Points sharing a *server fingerprint* (model, revision, quantization, dtype,
-max_model_len, gpu_memory_utilization, max_num_seqs, prefix caching, extra
-args, port) reuse one running vLLM process. Change any of those and the server
-restarts — which is also why changing one mid-series breaks comparability and
-requires rerunning the affected points.
+Points sharing a *server fingerprint* (stack, model, revision, quantization,
+dtype, max_model_len, gpu_memory_utilization, max_num_seqs, prefix caching,
+extra args, port, plus the llama.cpp fields) reuse one running server process.
+Change any of those and the server restarts — which is also why changing one
+mid-series breaks comparability and requires rerunning the affected points.
+
+This is why E4's two arms cost different amounts of wall clock. Concurrency is
+a *client-side* limit for vLLM, so all three vLLM points share one fingerprint
+and one model load; llama.cpp sizes its slots and KV context at startup, so
+each of its points needs its own.
 
 ## Before running any point
 

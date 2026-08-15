@@ -10,6 +10,7 @@ prints as "not run" rather than an estimate.
   ./analyze.py variance --experiment E0 # run-to-run coefficient of variation
   ./analyze.py sweep --experiment E1    # load sweep table
   ./analyze.py frontier --experiment E3 # model-size frontier table
+  ./analyze.py stacks --experiment E4   # vLLM vs llama.cpp
   ./analyze.py economics                # $/1M tokens and break-even volumes
   ./analyze.py plots                    # the three headline charts
   ./analyze.py all                      # everything, into results/
@@ -281,6 +282,9 @@ def row_view(r: dict) -> dict:
         "experiment": r.get("experiment"),
         "status": r.get("status"),
         "file": r.get("_path"),
+        # Absent on every E0-E3 run: the field postdates them, and they are all
+        # vLLM. Defaulted rather than backfilled, so no raw file is rewritten.
+        "stack": server.get("stack") or "vllm",
         "model": server.get("model"),
         "quantization": server.get("quantization") or precision_of(server.get("model")),
         "max_model_len": server.get("max_model_len"),
@@ -615,6 +619,32 @@ def arm_of(r: dict) -> str:
     return precision_of(r["model"])
 
 
+STACK_LABEL = {
+    "vllm": "vLLM",
+    "llamacpp": "llama.cpp",
+}
+# What each stack was actually serving. E4's whole caveat lives in this dict:
+# the two arms are not the same weights.
+STACK_FORMAT = {
+    "vllm": "AWQ int4",
+    "llamacpp": "GGUF Q4_K_M",
+}
+E4_CAVEAT = (
+    "**GGUF Q4_K_M and AWQ int4 are different quantization formats.** This "
+    "compares two serving stacks each at its own native int4, not one set of "
+    "weights on two servers, so a throughput or energy gap here includes "
+    "whatever the formats themselves cost. Everything else is held equal: same "
+    "model family and size (Qwen2.5-7B-Instruct), same traffic shape "
+    "(512 in / 128 out), same tokenizer, same load generator, same idle "
+    "baseline, same session."
+)
+
+
+def stack_of(row: dict) -> str:
+    """Serving stack of a row_view. Absent means vLLM: E0-E3 predate the field."""
+    return str(row.get("stack") or "vllm")
+
+
 def load_gsm8k() -> dict[str, dict]:
     """Guard results, newest per arm."""
     out: dict[str, dict] = {}
@@ -749,6 +779,114 @@ def cmd_ablation(args: argparse.Namespace) -> str:
 # --------------------------------------------------------------------------
 # E3 frontier
 # --------------------------------------------------------------------------
+
+
+def cmd_stacks(args: argparse.Namespace) -> str:
+    """E4: vLLM vs llama.cpp at fixed concurrency."""
+    results = load_results(args.experiment or "E4", include_failed=True,
+                           include_superseded=getattr(args, "include_superseded", False))
+    if not results:
+        return f"E4 stack comparison: {NOT_RUN}."
+    rows = [row_view(r) for r in results]
+
+    out = ["## E4 — serving-stack comparison (Qwen2.5-7B int4, chat shape)", "",
+           E4_CAVEAT, ""]
+
+    concs = sorted({r["max_concurrency"] for r in rows
+                    if r["max_concurrency"] is not None}, key=int)
+    stacks = ["vllm", "llamacpp"]
+    body = []
+    for c in concs:
+        for st in stacks:
+            match = [r for r in rows
+                     if r["max_concurrency"] == c and stack_of(r) == st]
+            if not match:
+                continue
+            r = match[0]
+            base = next((x for x in rows if x["max_concurrency"] == c
+                         and stack_of(x) == "vllm"), None)
+
+            def rel(field: str, r=r, base=base, st=st) -> str:
+                if st == "vllm":
+                    return "baseline"
+                if not base or not base.get(field) or r.get(field) is None:
+                    return "-"
+                return f"{(r[field] / base[field] - 1) * 100:+.1f}%"
+
+            if r["status"] != "ok":
+                body.append([str(c), STACK_LABEL[st], STACK_FORMAT[st], r["status"]]
+                            + ["--"] * 8)
+                continue
+            body.append([
+                str(c), STACK_LABEL[st], STACK_FORMAT[st], "served",
+                fmt(r["out_tok_throughput"], ".4g"), rel("out_tok_throughput"),
+                fmt(r["ttft_p50_ms"], ".4g"),
+                fmt(r["itl_p50_ms"], ".3g"),
+                fmt(r["e2e_p95_ms"], ".4g"),
+                fmt(r["mean_power_w"], ".4g"),
+                fmt(r["j_per_out_tok"], ".3g"), rel("j_per_out_tok"),
+            ])
+    if body:
+        out.append(md_table(
+            ["concurrency", "stack", "format", "status", "out tok/s", "vs vLLM",
+             "TTFT p50 ms", "ITL p50 ms", "E2E p95 ms", "mean W",
+             "J/tok", "vs vLLM"], body))
+        out.append("")
+        out.append(
+            "Relative columns compare llama.cpp against vLLM at the same "
+            "concurrency. Concurrency is held by the load generator "
+            "(`--max-concurrency`), so it is the number of requests in flight, "
+            "not an offered rate: there is no queue to grow and no SLO column, "
+            "because every request is admitted as soon as a slot frees.")
+        out.append("")
+
+    # --- what each stack reports about itself ---
+    sbody = []
+    for c in concs:
+        for st in stacks:
+            match = [r for r in rows if r["max_concurrency"] == c
+                     and stack_of(r) == st and r["status"] == "ok"]
+            if not match:
+                continue
+            r = match[0]
+            completed, issued = r["completed"], None
+            cfg_load = None
+            for res in results:
+                if res.get("point_id") == r["point_id"]:
+                    cfg_load = (res.get("config") or {}).get("load") or {}
+            if cfg_load:
+                issued = cfg_load.get("num_prompts")
+            sbody.append([
+                str(c), STACK_LABEL[st],
+                fmt(r["batch_mean"], ".3g"),
+                f"{r['kv_util_mean'] * 100:.1f}%" if r["kv_util_mean"] is not None else NOT_RUN,
+                fmt(r["preemptions"], ".4g") if r["preemptions"] is not None else NOT_RUN,
+                f"{completed}/{issued}" if issued else fmt(completed, ".4g"),
+            ])
+    if sbody:
+        out.append("### What each stack reports about itself")
+        out.append("")
+        out.append(md_table(
+            ["concurrency", "stack", "requests running (mean)", "KV utilisation",
+             "preemptions", "completed"], sbody))
+        out.append("")
+        out.append(
+            f"`{NOT_RUN}` in the last two columns is a difference between the "
+            "stacks rather than a gap in the measurement. llama.cpp reports no "
+            "preemption counter because it does not preempt: a request that "
+            "finds no free slot is deferred before it starts rather than "
+            "evicted after it starts. It also exports no KV-utilisation ratio, "
+            "and the quantity would not mean the same thing if it did — "
+            "llama.cpp partitions KV into fixed per-slot budgets where vLLM "
+            "shares one pool.")
+        out.append("")
+        out.append(
+            "A `completed` count below the issued count is a dropped request, "
+            "kept visible rather than quietly excluded; each one also trips "
+            "this project's `all_requests_completed` sanity check. The "
+            "observed failures are client-side `ServerDisconnectedError` on "
+            "connection reuse, not model or capacity errors.")
+    return "\n".join(out)
 
 
 def cmd_frontier(args: argparse.Namespace) -> str:
@@ -1309,6 +1447,72 @@ def plot_goodput(rows: list[dict], path: str, shape: str | None = None) -> bool:
     return True
 
 
+def plot_stacks(rows: list[dict], path: str) -> bool:
+    """E4: throughput and energy per token against concurrency, one line per stack.
+
+    Two panels rather than two axes on one: throughput and J/token have no
+    common scale, and a twin axis invites the reader to compare their slopes as
+    if they did.
+    """
+    plt = _style()
+    series = []
+    for st in ("vllm", "llamacpp"):
+        pts = sorted([r for r in rows
+                      if stack_of(r) == st and r["status"] == "ok"
+                      and r["out_tok_throughput"] and r["max_concurrency"]],
+                     key=lambda r: int(r["max_concurrency"]))
+        if pts:
+            series.append((st, pts))
+    if len(series) < 1:
+        return False
+
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.4))
+    colour = {"vllm": C["blue"], "llamacpp": C["orange"]}
+    for st, pts in series:
+        x = [int(p["max_concurrency"]) for p in pts]
+        label = f"{STACK_LABEL[st]} ({STACK_FORMAT[st]})"
+        for ax, field, unit in ((axes[0], "out_tok_throughput", ""),
+                                (axes[1], "j_per_out_tok", " J")):
+            y = [p[field] for p in pts]
+            ax.plot(x, y, marker="o", color=colour[st], label=label,
+                    markeredgecolor=SURFACE, markeredgewidth=1.5)
+            ax.annotate(f"{y[-1]:.3g}{unit}", (x[-1], y[-1]),
+                        textcoords="offset points", xytext=(8, 0), va="center",
+                        fontsize=9, color=INK_2)
+
+    ticks = sorted({int(p["max_concurrency"]) for _, pts in series for p in pts})
+    for ax in axes:
+        ax.set_xscale("log")
+        ax.set_xticks(ticks)
+        ax.set_xticklabels([str(t) for t in ticks])
+        ax.set_xlabel("Concurrent requests in flight")
+        ax.set_xlim(right=max(ticks) * 2.4)
+        ax.set_ylim(bottom=0)
+    axes[0].set_ylabel("Output tokens/s")
+    axes[0].set_title("Throughput")
+    axes[1].set_ylabel("Energy per output token (J)")
+    axes[1].set_title("Energy per token")
+    axes[0].legend(loc="upper left")
+    fig.suptitle("Two stacks at their native int4 — RTX 4090, Qwen2.5-7B, 512 in / 128 out",
+                 x=0.01, ha="left", fontsize=13, color=INK, weight="600")
+
+    for ax in axes:
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        for side in ("left", "bottom"):
+            ax.spines[side].set_color(GRID)
+    fig.text(0.01, 0.005,
+             "GGUF Q4_K_M and AWQ int4 are different quantization formats: this "
+             "compares stacks at their native int4, not identical weights.",
+             ha="left", va="bottom", fontsize=7.5, color=INK_MUTED)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fig.tight_layout(rect=(0, 0.045, 1, 0.93))
+    fig.savefig(path)
+    plt.close(fig)
+    print(f"[analyze] wrote {os.path.relpath(path, REPO)}")
+    return True
+
+
 def cmd_plots(args: argparse.Namespace) -> str:
     pricing = load_pricing()
     rows = [row_view(r) for r in load_results("E1")]
@@ -1330,6 +1534,9 @@ def cmd_plots(args: argparse.Namespace) -> str:
                 else f"e1_goodput_vs_load__{slug}.png")
         if plot_goodput(rows, os.path.join(PLOTS, name), shape=shape):
             made.append(name)
+    e4 = [row_view(r) for r in load_results("E4")]
+    if e4 and plot_stacks(e4, os.path.join(PLOTS, "e4_stacks_vs_concurrency.png")):
+        made.append("e4_stacks_vs_concurrency.png")
     return "Wrote: " + (", ".join(made) if made else NOT_RUN)
 
 
@@ -1348,6 +1555,7 @@ def cmd_all(args: argparse.Namespace) -> str:
         "e1_sweep.md": cmd_sweep(ns),
         "e2_ablation.md": cmd_ablation(ns),
         "e3_frontier.md": cmd_frontier(ns),
+        "e4_stacks.md": cmd_stacks(ns),
         "e5_economics.md": cmd_economics(ns),
     }
     for name, text in sections.items():
@@ -1363,7 +1571,7 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("summary", "variance", "sweep", "ablation", "frontier",
-                 "economics", "plots", "all"):
+                 "stacks", "economics", "plots", "all"):
         p = sub.add_parser(name)
         p.add_argument("--experiment", default=None)
         p.add_argument("--include-superseded", action="store_true",
@@ -1372,6 +1580,7 @@ def main() -> int:
     fn = {
         "summary": cmd_summary, "variance": cmd_variance, "sweep": cmd_sweep,
         "ablation": cmd_ablation, "frontier": cmd_frontier,
+        "stacks": cmd_stacks,
         "economics": cmd_economics, "plots": cmd_plots,
         "all": cmd_all,
     }[args.cmd]
