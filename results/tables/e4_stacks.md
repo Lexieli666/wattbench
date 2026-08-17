@@ -27,3 +27,20 @@ Relative columns compare llama.cpp against vLLM at the same concurrency. Concurr
 `not run` in the last two columns is a difference between the stacks rather than a gap in the measurement. llama.cpp reports no preemption counter because it does not preempt: a request that finds no free slot is deferred before it starts rather than evicted after it starts. It also exports no KV-utilisation ratio, and the quantity would not mean the same thing if it did — llama.cpp partitions KV into fixed per-slot budgets where vLLM shares one pool.
 
 **Every point completed every request it issued.** That is worth stating because it was not true on the first attempt: with HTTP connection reuse left on, llama.cpp dropped 10.9% of requests at concurrency 8 and 11.2% at concurrency 32 — see `e4_transport.md`, and the superseded runs in `results/raw/`.
+
+### Quality guard — GSM8K exact match, n=200
+
+| stack     | format      | correct | exact match | 95% Wilson interval | request errors |
+|-----------|-------------|---------|-------------|---------------------|----------------|
+| vLLM      | AWQ int4    | 182/200 | 91.0%       | 86.2% – 94.2%       | 0              |
+| llama.cpp | GGUF Q4_K_M | 180/200 | 90.0%       | 85.1% – 93.4%       | 0              |
+
+vLLM/AWQ minus llama.cpp/GGUF is **+1.0 points**, 95% interval on the difference -4.9 to +6.9 points (Newcombe score method). The gap is **within noise** at n=200.
+
+Plainly: **this guard finds no quality difference between the two arms**, which is the useful outcome for a reader choosing a stack — it means E4's throughput and energy result can be read as a serving recommendation rather than a speed-for-accuracy trade. It is not proof of parity: an interval that contains zero also contains everything else inside it.
+
+**The caveat that governs this table is the same one that governs the rest of E4: these are different int4 formats.** A quality difference here is a property of the format-plus-stack pair, not of the batching implementation — GGUF Q4_K_M and AWQ quantize different tensors to different group sizes, and nothing in this project separates the format's contribution from the server's.
+
+**Cross-check against the E2 guard.** The same AWQ checkpoint was measured at n=50 in E2 and scored 92.0% (81.2% – 96.8%), against 91.0% here — a different subset draw, different serving flags and a different session, consistent at -7.8 to +10.3 points. That is a check on the guard itself, not a second result: the two are not pooled.
+
+Sample sizes are stated wherever these numbers appear beside E2's, because they are not the same measurement: E2's guard is n=50 and its subset is a different draw from this one, so the two are separate row sets and are never pooled. Both arms here were measured in one session, greedy, through the same client and the same `Connection: close` transport the E4 serving runs used.

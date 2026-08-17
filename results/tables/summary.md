@@ -57,7 +57,9 @@
 | e4_vllm_awq_c32_seqs512       | E4-control     | ok                     | inf     | 12      | 1539      | 598.5       | 0.263   | PASS   | -     |
 | e4_vllm_awq_c8                | E4             | ok                     | inf     | 6.41    | 820.2     | 366.1       | 0.419   | PASS   | -     |
 | gsm8k_awq                     | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
+| gsm8k_awq_n200                | E4-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_bf16                    | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
+| gsm8k_gguf_q4km_n200          | E4-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_gptq                    | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | limits_context_14b            | E2-limits      | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | limits_context_32b            | E2-limits      | no_context_served      | not run | not run | not run   | not run     | not run | ?      | -     |

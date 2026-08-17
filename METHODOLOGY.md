@@ -523,8 +523,14 @@ Two honesty constraints on those formulas:
 
 - The amortisation line assumes the card is **busy at the quoted throughput
   every hour of its three-year life** — the most generous possible assumption
-  for owning. At 10 % duty cycle the amortised figure is ten times higher, and
-  the README says so next to the number.
+  for owning. What it costs at any other duty is a curve, not a multiplier:
+  amortisation is a fixed daily cost spread over the day's actual output, so
+  the owned figure is `amort_per_day / (V/1e6) + energy $/1M` at daily volume
+  `V`, and duty cycle is *determined* by `V` (`V / (tok_per_s x 86400)`) rather
+  than free to vary alongside it. `results/plots/e5_cost_vs_volume.png` and the
+  sensitivity rows in `e5_economics.md` are that curve. Note what does **not**
+  move with duty: the break-even volumes, because amortisation is daily on both
+  sides of the comparison and cancels.
 - API prices are compared at an **effective output price** that folds in the
   input charge at the benchmarked input:output ratio. Self-hosting pays for
   prefill too; comparing against an API's output price alone would flatter the
@@ -642,6 +648,50 @@ Full account and every number: `results/tables/e4_transport.md`.
 in the E4 table so the reader can weigh it. After the transport was pinned, all
 six E4 points completed every request they issued.
 
+### The stack recommendation is quality-guarded, at n=200
+
+A stack recommendation with no quality control is the weakest claim available:
+"vLLM is faster" is worth nothing if what it serves is worse. E2's guard covers
+BF16, AWQ and GPTQ but not GGUF Q4_K_M, so until this ran the llama.cpp arm had
+no quality number at all.
+
+Both E4 arms were run through `gsm8k_guard.py` against the same serving flags
+their throughput points used — llama.cpp under `configs/e4/llamacpp_c1.yaml`
+(`-ngl 99 -c 4096 --parallel 1 --flash-attn auto`), vLLM under
+`configs/e4/vllm_c1.yaml`. Three choices are worth stating:
+
+- **n=200, not E2's n=50.** At n=50 the 95% interval is roughly ±14 points,
+  wide enough that a ten-point gap would license nothing. n=200 roughly halves
+  it to ±7, and costs a few minutes of greedy decoding. The n=50 and n=200
+  subsets are **different draws from the same test split, not nested**, so they
+  are separate row sets and are never pooled; every table that shows them
+  together states both sample sizes.
+- **The served model id was read from the endpoint, not assumed.** llama.cpp
+  answers to its `--alias` rather than to an HF repo id: `/v1/models` reports
+  `qwen2.5-7b-instruct-q4_k_m` (`ftype: Q4_K - Medium`, `n_ctx 4096`). The guard
+  records the GGUF repo separately so the weights still resolve to a commit.
+- **The guard's own transport was verified on a socket**, because E4's finding
+  is that the client is part of the instrument. `urllib.request` sends
+  `Connection: close` and opens one connection per request — confirmed by
+  pointing the guard at a local server that echoes its headers, not by reading
+  the documentation. That matches the transport both E4 serving arms used.
+
+Result: vLLM/AWQ **91.0%** (182/200), llama.cpp/GGUF **90.0%** (180/200), zero
+request errors on either. The difference is **+1.0 point with a 95% interval of
+−4.9 to +6.9** (Newcombe score method for the difference of two proportions —
+an interval on the *difference*, because two intervals eyeballed for overlap is
+the conservative mistake rather than the safe one). **Within noise.**
+
+So E4's throughput and energy result reads as a serving recommendation rather
+than a speed-for-accuracy trade. It is not proof of parity: an interval that
+contains zero contains everything else inside it too. And the format caveat
+above still governs — a quality difference here would belong to the
+format-plus-stack pair, not to the batching implementation.
+
+As a check on the guard rather than a second result, the AWQ checkpoint scored
+92.0% at n=50 in E2, on a different draw, under different serving flags, in
+another session; the two agree to within −7.8 to +10.3 points.
+
 ---
 
 ## 8. What this project does not claim
@@ -649,8 +699,9 @@ six E4 points completed every request they issued.
 - **No capability equivalence.** A locally served Qwen2.5-7B is not a substitute
   for a frontier API model. Frontier price rows appear to show the ceiling of
   the market, not an available trade, and are marked as not weight-class
-  comparable. The only capability evidence produced here is the E2 GSM8K
-  exact-match guard, and it licenses no claim beyond that task.
+  comparable. The only capability evidence produced here is the GSM8K
+  exact-match guard — n=50 for the E2 quantization arms, n=200 for the two E4
+  stack arms — and it licenses no claim beyond that task.
 - **No datacenter comparison.** Single consumer card, cited references only.
 - **No identical-weights stack comparison.** E4's two arms serve different int4
   formats because that is what each stack natively serves (§7b). It answers
