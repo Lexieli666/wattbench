@@ -56,6 +56,7 @@
 | e4_vllm_awq_c32               | E4             | ok                     | inf     | 12.1    | 1542      | 594.5       | 0.262   | PASS   | -     |
 | e4_vllm_awq_c32_seqs512       | E4-control     | ok                     | inf     | 12      | 1539      | 598.5       | 0.263   | PASS   | -     |
 | e4_vllm_awq_c8                | E4             | ok                     | inf     | 6.41    | 820.2     | 366.1       | 0.419   | PASS   | -     |
+| fp8_7b_chat_r4                | E2-fp8         | ok                     | 4       | 3.97    | 508.1     | 105.5       | 0.59    | PASS   | -     |
 | gsm8k_awq                     | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_awq_n200                | E4-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_bf16                    | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |

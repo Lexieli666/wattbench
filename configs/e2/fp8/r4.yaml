@@ -1,0 +1,33 @@
+# FP8 on Ada (SM 8.9) — plan §3's exploratory rung, attempted and recorded.
+#
+# Plan §3: "FP8 on Ada (SM 8.9) is exploratory: attempt it, and if the vLLM
+# build's support is partial, report that finding in one sentence rather than
+# fighting it." Either outcome is a result: a served point, or a
+# server_failed_to_start record carrying the root cause from the server's own
+# log. A failure that writes no record is a silent omission.
+#
+# THIS IS A NEW ARM FROM A LATER SESSION (2026-08-17), not part of the original
+# E2 ablation, which was measured 2026-08-10. Its experiment tag is E2-fp8 so
+# it cannot leak into the E2 tables, and anything compared across the two dates
+# carries E0's cross-session drift (~2% on tail latency) on top of the
+# within-session bar.
+#
+# It extends the E1 r4 point rather than restating its load, so the traffic is
+# identical by construction to e1_chat_7b_bf16_r4 and the *only* variable is
+# the precision: same checkpoint, same 512in/128out at 4 req/s Poisson, same
+# 800 prompts, same seed, same greedy sampling.
+#
+# Quantization is applied on the fly to the BF16 weights (`--quantization fp8`)
+# rather than fetched as a pre-quantized checkpoint. That keeps the weights
+# identical to the BF16 arm's, costs no download, and is the path a 4090 owner
+# would actually take. It is W8A8 as vLLM implements it here; nothing in this
+# config asks for an FP8 KV cache.
+extends: ../../e1/chat/r4.yaml
+experiment: E2-fp8
+point_id: fp8_7b_chat_r4
+description: FP8 attempt on Ada SM 8.9, Qwen2.5-7B, chat shape, 4 req/s Poisson
+
+server:
+  # Setting `quantization` makes harness.py pass --quantization and drop
+  # --dtype, which is what vLLM expects for on-the-fly FP8.
+  quantization: fp8

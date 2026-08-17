@@ -199,6 +199,30 @@ them.
 The quality guard is 50 items with heavily overlapping intervals: it rules out a
 quality collapse and **cannot certify parity**.
 
+**FP8 on Ada: attempted, and it serves.** Plan §3 listed FP8 on SM 8.9 as
+exploratory — attempt it, and report in one sentence if the build's support
+turns out partial. It is not partial: vLLM 0.26.0 quantized the BF16 checkpoint
+on the fly (`--quantization fp8`) and served it through
+`CutlassFP8ScaledMMLinearKernel` / `Fp8PerTensorOnlineLinearMethod`, read from
+the server's own log. One chat-shape point at 4 req/s, identical load to
+`e1_chat_7b_bf16_r4` so precision is the only variable:
+
+| 7B at 4 req/s, 512in/128out | BF16 | FP8 (online) | AWQ int4 |
+|---|---|---|---|
+| out tok/s (offered-rate bound) | 506.5 | 508.1 | 509.8 |
+| TTFT p95 | 158.3 ms | **105.5 ms** | 111.3 ms |
+| ITL p50 | 16.78 ms | 11.36 ms | **6.18 ms** |
+| mean GPU power | 343.7 W | **289.0 W** | 319.7 W |
+| J / output token | 0.702 | **0.590** | 0.650 |
+| KV cache the server got | 6.06 GiB | 11.5 GiB | **~15 GiB** |
+
+FP8 lands between BF16 and AWQ on latency and KV headroom, and **below both on
+energy per token** at this load. It is a **new arm measured a week after the
+E0–E3 series**, so it carries cross-session drift (~2% on tail latency) on top
+of the within-session bar, and **no quality guard was run for it** — it
+therefore carries no quality claim at all. Details and the one build caveat:
+[`METHODOLOGY.md`](METHODOLOGY.md).
+
 ### 5. Model-size frontier
 
 Every rung is AWQ int4, same serving flags, same 4 req/s of 512-in/128-out — so

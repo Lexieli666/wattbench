@@ -440,6 +440,43 @@ rather than silent.
 throughput is still within 5 % of offered load (beyond that the queue is
 growing) *and* at least half of requests met both SLO clauses.
 
+### FP8 on Ada (SM 8.9) — attempted, and it serves
+
+Plan §3 listed FP8 as exploratory: attempt it, and if the build's support turns
+out partial, report that in one sentence rather than fighting it. **It is not
+partial.** vLLM 0.26.0 quantized the BF16 checkpoint on the fly
+(`--quantization fp8`, no pre-quantized checkpoint and no download) and served
+it, and the server's own log names the path taken: `Selected
+CutlassFP8ScaledMMLinearKernel for Fp8PerTensorOnlineLinearMethod`, i.e. online
+per-tensor W8A8 through the CUTLASS FP8 GEMM. One build caveat is in the same
+log and is recorded because it is the only thing that looked partial: the
+optional `vllm.third_party.deep_gemm` backend failed to import here
+(`AssertionError` in `_find_cuda_home` — no `CUDA_HOME` in this venv), so
+whatever that path would have contributed was not available. The CUTLASS path
+served the whole run without error.
+
+The point is `configs/e2/fp8/r4.yaml`, tagged `E2-fp8` so it cannot leak into
+the E2 tables. It extends the E1 r4 config rather than restating it, so the
+traffic is identical to `e1_chat_7b_bf16_r4` by construction and precision is
+the only variable. Measured 2026-08-17: 508.1 out tok/s (offered-rate bound, as
+every r4 point is), TTFT p95 105.5 ms against BF16's 158.3, ITL p50 11.36 ms
+against 16.78, mean power 289.0 W against 343.7, and **0.590 J per output token
+against BF16's 0.702 and AWQ's 0.650** — the lowest of the three at this load.
+The server was given 11.5 GiB of KV cache where BF16 got 6.06 GiB and AWQ ~15
+GiB, so FP8 buys roughly 90% more KV headroom than BF16 and still less than
+int4. No throttling (`sw_power_cap_frac` 0.0, clocks 2655 MHz p50), energy
+cross-check 0.58%, all eleven sanity checks pass.
+
+Three limits on that paragraph. It is **one point at one load**, not a sweep.
+It is a **new arm from a later session** — 2026-08-17 against the series'
+2026-08-10/11 — so it carries the ~2% cross-session tail-latency drift on top of
+the within-session variance bar, and its idle-subtracted energy is computed
+against a baseline ~3.4 W higher than the older arms used (raw J/token, quoted
+above, is baseline-independent). And **no GSM8K guard was run for FP8**, so this
+project makes no claim whatsoever about its output quality; dynamic
+quantization is exactly the kind of change a quality guard exists to catch, and
+here there is none.
+
 ---
 
 ## 5. What gets committed, and what gets dropped
