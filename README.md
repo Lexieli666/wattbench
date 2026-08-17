@@ -366,7 +366,9 @@ VIRTUAL_ENV=~/wattbench-venv uv pip install vllm pyyaml matplotlib
 ./run_e4.sh                           # stack comparison; needs llama.cpp built
 # The other scripts resolve the venv themselves; this one runs on whatever
 # python3 is on PATH, and the system one has no matplotlib.
-~/wattbench-venv/bin/python ./analyze.py all   # tables + plots into results/
+~/wattbench-venv/bin/python ./validate_energy.py  # M3 gate, must pass first
+~/wattbench-venv/bin/python ./analyze.py all      # tables + plots into results/
+~/wattbench-venv/bin/python ./verify_readme.py    # every number here traces to raw
 ```
 
 `run.sh` takes one config and produces one raw result; it reuses a running vLLM
@@ -422,6 +424,7 @@ baseline.sh     measure the idle-power baseline for a series
 power_log.py    telemetry polling and joule integration
 harness.py      config parsing, provenance, result assembly, sanity checks
 validate_energy.py  M3 gate: energy numbers are checked before they are used
+verify_readme.py    checks every number quoted in this file against raw data
 gsm8k_guard.py  quality guard: n=50 for the E2 arms, n=200 for the E4 stacks
 probe_limits.sh longest servable context per checkpoint
 run_e4.sh       the stack comparison, both arms plus its controls
