@@ -270,6 +270,24 @@ throughput at 8 concurrent, +104% at 32, at 47% and 23% less energy per token.
 That is the shape the project plan predicted. It is not the shape the first
 measurement produced, and the reason is the most useful thing E4 found.
 
+**And the speed is not bought with quality.** Both arms were put through the
+GSM8K guard at **n=200** — four times E2's sample, because at n=50 the interval
+is ±14 points and a ten-point gap would license nothing:
+
+| stack | format | exact match | 95% Wilson interval | request errors |
+|---|---|---|---|---|
+| vLLM | AWQ int4 | 91.0% (182/200) | 86.2% – 94.2% | 0 |
+| llama.cpp | GGUF Q4_K_M | 90.0% (180/200) | 85.1% – 93.4% | 0 |
+
+The gap is **+1.0 point, 95% interval −4.9 to +6.9** on the difference
+(Newcombe) — **within noise**. So E4's throughput and energy result reads as a
+serving recommendation rather than a speed-for-accuracy trade. It is not proof
+of parity: an interval containing zero contains everything else inside it too.
+The format caveat still governs — a quality difference here would be a property
+of the format-plus-stack pair, not of the batching implementation. As a check on
+the guard rather than a second result, the same AWQ checkpoint scored 92.0% at
+n=50 in E2, on a different subset draw in a different session.
+
 **The HTTP transport dominated the first pass, and it is worth its own section.**
 The load generator reuses pooled connections by default. llama.cpp leaves
 cpp-httplib's 5-second keep-alive timeout in place, so the server closes
@@ -345,9 +363,11 @@ host.**
 - **No capability equivalence.** A locally served Qwen2.5-7B is not a substitute
   for a frontier API model. Frontier prices appear in the comparison to show the
   ceiling of the market, marked as not weight-class comparable. The only
-  capability evidence produced here is a 50-item GSM8K exact-match guard, which
-  licenses no claim beyond that task — and at n=50 the 95% interval is roughly
-  ±14 points, so only large gaps mean anything.
+  capability evidence produced here is a GSM8K exact-match guard — 50 items for
+  the E2 quantization arms, 200 for the two E4 stack arms — which licenses no
+  claim beyond that task. At n=50 the 95% interval is roughly ±14 points and at
+  n=200 roughly ±7, so only gaps wider than that mean anything. The two sample
+  sizes are different subset draws and are never pooled.
 - **No measured API latency.** Without API keys, no hosted endpoint was timed.
   Every measured latency here is self-hosted.
 - **No datacenter comparison.** One consumer card; datacenter work is cited, not
@@ -378,7 +398,7 @@ baseline.sh     measure the idle-power baseline for a series
 power_log.py    telemetry polling and joule integration
 harness.py      config parsing, provenance, result assembly, sanity checks
 validate_energy.py  M3 gate: energy numbers are checked before they are used
-gsm8k_guard.py  50-item quality guard for the quantization ablation
+gsm8k_guard.py  quality guard: n=50 for the E2 arms, n=200 for the E4 stacks
 probe_limits.sh longest servable context per checkpoint
 run_e4.sh       the stack comparison, both arms plus its controls
 analyze.py      raw -> tables and plots

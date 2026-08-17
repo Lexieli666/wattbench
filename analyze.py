@@ -645,6 +645,39 @@ def stack_of(row: dict) -> str:
     return str(row.get("stack") or "vllm")
 
 
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """95% Wilson score interval for a proportion.
+
+    Wilson rather than the normal approximation: at n=50 and accuracy near 0.95
+    the normal interval runs past 1.0 and understates the lower tail.
+    """
+    if not n:
+        return (0.0, 0.0)
+    p = k / n
+    denom = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
+def newcombe_difference(k1: int, n1: int, k2: int, n2: int) -> tuple[float, float]:
+    """95% interval for p1 - p2, built from the two Wilson intervals.
+
+    Newcombe's score method. The question a stack guard has to answer is not
+    "what is each arm's accuracy" but "is the gap between them distinguishable
+    from zero", and that needs an interval on the difference rather than two
+    intervals eyeballed for overlap — non-overlapping intervals are sufficient
+    for a difference but not necessary, so eyeballing is the conservative
+    mistake, not the safe one.
+    """
+    p1, p2 = k1 / n1, k2 / n2
+    l1, u1 = wilson(k1, n1)
+    l2, u2 = wilson(k2, n2)
+    lo = (p1 - p2) - math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2)
+    hi = (p1 - p2) + math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)
+    return (lo, hi)
+
+
 def load_gsm8k() -> dict[str, dict]:
     """Guard results, newest per arm."""
     out: dict[str, dict] = {}
@@ -725,15 +758,10 @@ def cmd_ablation(args: argparse.Namespace) -> str:
                 continue
             m = g["metrics"]
             n, k = m["n_items"], m["n_correct"]
-            # Wilson 95% interval: with n=50 the normal approximation is poor.
-            p = k / n
-            z = 1.96
-            denom = 1 + z * z / n
-            centre = (p + z * z / (2 * n)) / denom
-            half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+            lo, hi = wilson(k, n)
             gbody.append([
-                arm, f"{k}/{n}", f"{p:.1%}",
-                f"{max(0.0, centre - half):.1%} – {min(1.0, centre + half):.1%}",
+                arm, f"{k}/{n}", f"{k / n:.1%}",
+                f"{lo:.1%} – {hi:.1%}",
                 str(m.get("n_errors", 0)),
             ])
         out.append(md_table(
@@ -897,6 +925,120 @@ def cmd_stacks(args: argparse.Namespace) -> str:
                 "connection reuse left on, llama.cpp dropped 10.9% of requests at "
                 "concurrency 8 and 11.2% at concurrency 32 — see "
                 "`e4_transport.md`, and the superseded runs in `results/raw/`.")
+
+    out.append("")
+    out.append(cmd_stacks_guard())
+    return "\n".join(out)
+
+
+# The two E4 arms as the quality guard sees them. Labels are explicit rather
+# than derived: they must not collide with the E2 guard's n=50 arms, which stay
+# published untouched.
+E4_GUARD_ARMS = (("vllm", "awq_n200"), ("llamacpp", "gguf_q4km_n200"))
+
+
+def cmd_stacks_guard() -> str:
+    """GSM8K guard for the two E4 arms, at n=200.
+
+    A stack recommendation with no quality control is the weakest claim
+    available: "vLLM is faster" means nothing if the thing it is serving is
+    worse. E2's guard covers BF16/AWQ/GPTQ and not GGUF Q4_K_M, so the
+    llama.cpp arm had no quality number at all until this ran.
+
+    n=200 rather than E2's n=50 because at n=50 the 95% interval is ±14 points,
+    wide enough that a ten-point gap licenses nothing. n=200 roughly halves it.
+    """
+    guards = load_gsm8k()
+    have = {label: guards[label] for _, label in E4_GUARD_ARMS if label in guards}
+    out = ["### Quality guard — GSM8K exact match, n=200", ""]
+    if not have:
+        out.append(f"{NOT_RUN}. E4 makes no quality claim about either arm.")
+        return "\n".join(out)
+
+    gbody, stats = [], {}
+    for stack, label in E4_GUARD_ARMS:
+        g = have.get(label)
+        if not g:
+            gbody.append([STACK_LABEL[stack], STACK_FORMAT[stack],
+                          NOT_RUN, NOT_RUN, NOT_RUN, NOT_RUN])
+            continue
+        m = g["metrics"]
+        n, k = m["n_items"], m["n_correct"]
+        lo, hi = wilson(k, n)
+        stats[stack] = (k, n)
+        gbody.append([
+            STACK_LABEL[stack], STACK_FORMAT[stack], f"{k}/{n}", f"{k / n:.1%}",
+            f"{lo:.1%} – {hi:.1%}", str(m.get("n_errors", 0)),
+        ])
+    out.append(md_table(
+        ["stack", "format", "correct", "exact match", "95% Wilson interval",
+         "request errors"], gbody))
+    out.append("")
+
+    if len(stats) == 2:
+        (k1, n1) = stats["vllm"]
+        (k2, n2) = stats["llamacpp"]
+        gap = k1 / n1 - k2 / n2
+        lo, hi = newcombe_difference(k1, n1, k2, n2)
+        verdict = ("**within noise**" if lo <= 0 <= hi
+                   else "**distinguishable from zero**")
+        out.append(
+            f"vLLM/AWQ minus llama.cpp/GGUF is **{gap * 100:+.1f} points**, 95% "
+            f"interval on the difference {lo * 100:+.1f} to {hi * 100:+.1f} points "
+            f"(Newcombe score method). The gap is {verdict} at n=200.")
+        out.append("")
+        if lo <= 0 <= hi:
+            out.append(
+                "Plainly: **this guard finds no quality difference between the two "
+                "arms**, which is the useful outcome for a reader choosing a stack "
+                "— it means E4's throughput and energy result can be read as a "
+                "serving recommendation rather than a speed-for-accuracy trade. It "
+                "is not proof of parity: an interval that contains zero also "
+                "contains everything else inside it.")
+        else:
+            out.append(
+                "The arms differ by more than sampling noise on this task, so "
+                "E4's throughput and energy comparison must be read as a trade "
+                "rather than a free win.")
+        out.append("")
+
+    out.append(
+        "**The caveat that governs this table is the same one that governs the "
+        "rest of E4: these are different int4 formats.** A quality difference "
+        "here is a property of the format-plus-stack pair, not of the batching "
+        "implementation — GGUF Q4_K_M and AWQ quantize different tensors to "
+        "different group sizes, and nothing in this project separates the "
+        "format's contribution from the server's.")
+    out.append("")
+    # The reflex that has caught more defects here than anything else: compare
+    # a new point against an existing measurement of the same thing. AWQ was
+    # already guarded in E2 at n=50, on a different subset draw, under E2's
+    # serving flags, in another session.
+    prior = guards.get("awq")
+    if prior and "awq_n200" in have:
+        pm, nm = prior["metrics"], have["awq_n200"]["metrics"]
+        p_lo, p_hi = wilson(pm["n_correct"], pm["n_items"])
+        d_lo, d_hi = newcombe_difference(nm["n_correct"], nm["n_items"],
+                                         pm["n_correct"], pm["n_items"])
+        agrees = d_lo <= 0 <= d_hi
+        out.append(
+            f"**Cross-check against the E2 guard.** The same AWQ checkpoint was "
+            f"measured at n={pm['n_items']} in E2 and scored "
+            f"{pm['exact_match'] * 100:.1f}% ({p_lo:.1%} – {p_hi:.1%}), against "
+            f"{nm['exact_match'] * 100:.1f}% here — a different subset draw, "
+            f"different serving flags and a different session, "
+            f"{'consistent' if agrees else 'INCONSISTENT'} at "
+            f"{d_lo * 100:+.1f} to {d_hi * 100:+.1f} points. That is a check on "
+            f"the guard itself, not a second result: the two are not pooled.")
+        out.append("")
+
+    out.append(
+        "Sample sizes are stated wherever these numbers appear beside E2's, "
+        "because they are not the same measurement: E2's guard is n=50 and its "
+        "subset is a different draw from this one, so the two are separate row "
+        "sets and are never pooled. Both arms here were measured in one "
+        "session, greedy, through the same client and the same "
+        "`Connection: close` transport the E4 serving runs used.")
     return "\n".join(out)
 
 
