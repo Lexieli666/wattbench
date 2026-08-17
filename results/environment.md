@@ -305,6 +305,61 @@ One field-name note for anyone reproducing: this driver's WSL stub rejects
 `nvidia-smi --query-gpu=... -l N -c M` for the field set used here; loop in the
 shell instead. `power_log.py` polls per-sample and is unaffected.
 
+## Addendum, 2026-08-17 — re-verified at the start of the v0.2 session
+
+Same machine, three days after the E4 session. Re-read before touching the GPU.
+
+| Item | E0–E3 (2026-08-09) | Now (2026-08-17) | Comparable |
+|---|---|---|---|
+| Card / VRAM | RTX 4090, 24564 MiB | same | yes |
+| Driver (host) | 595.95 | 595.95 | yes |
+| NVIDIA-SMI (WSL stub) | 595.61 | 595.61 | yes |
+| Power limit (current/default/max) | 450 / 450 / 450 W | same | yes |
+| Persistence mode | Enabled | Enabled | yes |
+| Kernel | 6.6.114.1-microsoft-standard-WSL2 | same | yes |
+| Python / vLLM / torch | 3.12.13 / 0.26.0 / 2.11.0+cu130 | same | yes |
+| transformers / matplotlib | 5.14.1 / 3.11.1 | same | yes |
+| RAM visible to WSL | 31 GiB | 31 GiB | yes |
+| ext4 free | 879 GB | 807 GB (HF cache 65 GB) | n/a |
+
+**Nothing that governs comparability changed**, so nothing in this session is
+invalidated by drift in the stack. Disk headroom is ample for the two new
+artefacts this session needs (one ~4.7 GB 7B GGUF, already cached from E4, and
+one ~8 GB FP8 checkpoint).
+
+GPU state at the check: 21.75 W, SM clocks at their 210 MHz floor, 1378 MiB
+held by the desktop, **no compute processes**. Utilisation read 8–20% at the
+same moment, which is again why quiescence is judged by power here.
+
+**One thing did drift, and it is in the energy path: the idle floor is up.**
+Session baseline `results/idle/idle__S3__20260817T123542.json` has a median of
+**23.53 W** against the 18.73–22.16 W band that all thirteen earlier baselines
+share. This is not the familiar bimodality — the excursion fraction is a low
+3.4% and IQR/median is 7.8%, so the M3 stability gate passes comfortably. The
+whole distribution has moved: the *minimum* sample, 21.04 W, sits above every
+prior session's median. Card temperature is 44–51 °C at idle against 36–49 °C
+in earlier sessions, so a warmer ambient (mid-August) and the leakage and fan
+draw that come with it is the most economical explanation. It was not chased
+further, because of what it does and does not affect:
+
+- **Raw J/token is baseline-independent** and therefore unaffected everywhere.
+- **Idle-subtracted (net) J/token for anything measured in this session** is
+  computed against a baseline ~3.4 W higher than the E1/E2 arms used. At the
+  ~1500 tok/s operating point that is ~0.0023 J/token, i.e. under 1% — but it
+  is a systematic offset, not noise, and it points the new arm's net figure
+  *down* relative to the older ones.
+- Nothing in E0–E4 is touched: those runs subtract the baselines measured
+  alongside them, which is exactly why the baseline is per-session.
+
+**Which numbers in this session are cross-session, and which are not:** R1 is
+pure re-analysis of committed raw data and touches no GPU. R2's two GSM8K
+arms were measured within this session, against each other, and report
+accuracy rather than energy, so neither the baseline drift nor cross-session
+variance applies to their comparison. R3's FP8 arm is a **new arm from a later
+session**: its raw J/token compares cleanly with E1/E2, its net J/token carries
+the offset above, and its throughput carries the ~2% cross-session tail-latency
+drift E0 documented. Every comparison it appears in says so.
+
 ## Things to keep true across runs
 
 - Close other GPU consumers before a measured run (plan §2). The desktop's
