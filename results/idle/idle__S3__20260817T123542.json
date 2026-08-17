@@ -1,0 +1,78 @@
+{
+  "n_samples": 205,
+  "t_start": "2026-08-17T12:36:02.605000",
+  "t_end": "2026-08-17T12:38:12.195000",
+  "wall_s": 129.59,
+  "integrated_s": 129.59,
+  "sample_gaps": 0,
+  "sample_gap_s_total": 0.0,
+  "sample_interval_s": {
+    "p50": 0.636,
+    "p95": 0.6637,
+    "max": 0.686
+  },
+  "energy_j": 3182.85,
+  "mean_power_w": 24.561,
+  "mean_power_w_arithmetic": 24.7,
+  "power_w": {
+    "min": 21.04,
+    "p50": 23.53,
+    "p95": 26.0,
+    "max": 68.06
+  },
+  "power_limit_w_observed": [
+    450.0
+  ],
+  "clock_sm_mhz": {
+    "min": 210.0,
+    "p50": 255.0,
+    "max": 2520.0
+  },
+  "temp_c": {
+    "min": 44.0,
+    "p50": 50.0,
+    "max": 51.0
+  },
+  "util_gpu_pct_mean": 31.2,
+  "mem_used_mib_max": 1528.0,
+  "throttle": {
+    "sw_power_cap_samples": 0,
+    "hw_thermal_samples": 0,
+    "sw_thermal_samples": 0,
+    "hw_slowdown_samples": 0,
+    "sw_power_cap_frac": 0.0,
+    "thermal_any_frac": 0.0,
+    "busy_clock_p95_mhz": 345.0,
+    "busy_clock_sag_frac": 0.3333,
+    "n_busy_samples": 3
+  },
+  "crosscheck": {
+    "naive_energy_j": 3200.83,
+    "abs_rel_diff": 0.00565,
+    "left_riemann_j": 3183.5,
+    "right_riemann_j": 3182.19,
+    "discretisation_bound": 0.0002
+  },
+  "flags": [
+    "clock_sag"
+  ],
+  "mode": "idle_baseline",
+  "series": "S3",
+  "measured_at": "2026-08-17T12:38:12.843520-07:00",
+  "settle_s_discarded": 20.0,
+  "samples_csv": "idle__S3__20260817T123542.json.samples.csv",
+  "robust": {
+    "median_w": 23.53,
+    "iqr_w": 1.84,
+    "iqr_over_median": 0.0782,
+    "excursion_threshold_w": 40.0,
+    "excursion_samples": 7,
+    "excursion_frac": 0.0341,
+    "quiescent_mean_w": 23.37,
+    "n_samples": 205
+  },
+  "idle_stat": "median",
+  "idle_power_w": 23.53,
+  "idle_power_w_mean": 24.561,
+  "warning": "mean GPU utilisation was 31.2% during the idle measurement; something else is using the card"
+}
