@@ -1,6 +1,6 @@
 # Status and remaining work
 
-Updated 2026-08-15, at the v0.1 tag. Everything below is recoverable from
+Updated 2026-08-17, at the v0.2 tag. Everything below is recoverable from
 the repo alone.
 
 ## Done (measured, committed, analysed)
@@ -16,12 +16,18 @@ the repo alone.
 | M6 E3 frontier | 1.5B/3B/7B/14B at 4096 + 32B at 1024, 3 recorded 32B serve failures, 14B and 32B context probes, 7B control |
 | M7 write-up | README, METHODOLOGY, SETUP-WSL2, pricing.yaml |
 | M8 E4 stacks | vLLM vs llama.cpp at concurrency 1/8/32, plus 3 transport and scheduler controls |
+| v0.2 R1 | duty-cycle cost curve + sensitivity rows (re-analysis only) |
+| v0.2 R2 | GSM8K guard for both E4 arms at n=200 |
+| v0.2 R3 | FP8 on Ada attempted; it serves, one point recorded |
 
-Regenerate every table and plot from raw data:
+Regenerate every table and plot from raw data, in this order and with the venv
+python — system `python3` has no matplotlib and writes the tables before it
+fails at the plots, so a partial run looks like a success:
 
 ```bash
 ~/wattbench-venv/bin/python ./validate_energy.py   # M3 gate, must pass first
 ~/wattbench-venv/bin/python ./analyze.py all
+~/wattbench-venv/bin/python ./verify_readme.py     # README numbers trace to raw
 ```
 
 ## Closed since 2026-08-11
@@ -73,17 +79,77 @@ Regenerate every table and plot from raw data:
    the only change moved 0.04% on throughput and 1.4% on energy. The pathology
    needs a closed loop; E1's Poisson arrivals are open-loop and absorb it.
 
+## Closed since 2026-08-15
+
+1. **Duty cycle is priced as a curve, not disposed of in a sentence**
+   (2026-08-17, re-analysis only, no GPU). The old text multiplied the
+   amortised figure by a duty factor, which is the wrong shape: at daily output
+   volume `V` the card only runs `V/(tput*86400)` of the day, so duty is
+   *determined* by `V` and multiplying an already volume-dependent $/1M by it
+   counts the same effect twice. What follows:
+
+   - **The break-even volumes do not move with duty cycle.** Amortisation is a
+     fixed daily cost on both sides of the comparison and cancels;
+     `e5_economics.md`'s break-even table is unchanged, and that is now stated
+     rather than left to be rediscovered.
+   - **The owned $/1M does move, and that was unreported.** $0.037 at full
+     duty, $0.052 at 50%, $0.081 at 25%, $0.169 at 10%, $1.487 at 1%. Below
+     ~43k output tokens/day the card's cost per million tokens exceeds even
+     Anthropic's Opus list price — a price statement, not a capability one.
+   - `results/plots/e5_cost_vs_volume.png` carries the curve with duty cycle as
+     a secondary axis (the same axis rescaled, so it cannot be read as an
+     independent variable) and the API levels drawn across it. Its crossings
+     are read off the plotted samples and agree with the break-even table to
+     **0.0004%** — a check on the chart, not a restatement of the algebra.
+
+2. **Both E4 arms now carry a quality guard, at n=200** (2026-08-17). vLLM/AWQ
+   **91.0%** (182/200), llama.cpp/GGUF **90.0%** (180/200), zero request errors
+   on either. Difference **+1.0 point, 95% Newcombe interval −4.9 to +6.9**:
+   within noise. E4's speed and energy result therefore reads as a serving
+   recommendation rather than a speed-for-accuracy trade — not as proof of
+   parity, since an interval containing zero contains everything else in it.
+
+   n=200 rather than E2's n=50 because ±14 points is wide enough that even a
+   ten-point gap licenses nothing. The two subsets are **different draws, not
+   nested**, so they are separate row sets, never pooled, and both sample sizes
+   are printed wherever they appear together. E2's published n=50 rows are
+   untouched. Two things were verified rather than assumed: llama.cpp answers to
+   its `--alias` (`/v1/models` → `qwen2.5-7b-instruct-q4_k_m`, ftype
+   `Q4_K - Medium`), and the guard's transport is `Connection: close` with one
+   connection per request — read off a socket, and matching what both E4 serving
+   arms used. Cross-checked against E2's n=50 AWQ guard (92.0%, different draw,
+   different session): consistent at −7.8 to +10.3 points.
+
+3. **FP8 on Ada was attempted, and it serves** (2026-08-17). Plan §3 asked for
+   the attempt with a one-sentence finding if support turned out partial; the
+   item had been dropped without a record, which is the silent omission this
+   repo has a rule against. vLLM 0.26.0 quantized the BF16 checkpoint on the fly
+   (`--quantization fp8`, no download) and served it through
+   `CutlassFP8ScaledMMLinearKernel` / `Fp8PerTensorOnlineLinearMethod`. One
+   chat-shape point at r4, extending the E1 r4 config so precision is the only
+   variable: TTFT p95 105.5 ms against BF16's 158.3, ITL p50 11.36 against
+   16.78, 289.0 W against 343.7, **0.590 J/token against 0.702** — and against
+   AWQ int4, slower per token (6.18 ms ITL) but lower energy (0.650 J). KV
+   headroom 11.5 GiB, between BF16's 6.06 and AWQ's ~15.
+
+   Tagged `E2-fp8`, not `E2`: it is a new arm measured a week after the series,
+   so it carries cross-session drift and a higher idle baseline, and it stays
+   out of the E2 tables by construction. **No GSM8K guard was run for it**, so
+   it carries no quality claim at all. The one partial-looking thing in the
+   build is recorded: the optional `vllm.third_party.deep_gemm` backend failed
+   to import (no `CUDA_HOME`); the CUTLASS path served the whole run.
+
 ## Remaining
 
-Nothing blocking v0.1. Optional next work, in rough order of value:
+Nothing blocking v0.2. Optional next work, in rough order of value:
 
 1. **Stretch items from plan §6**, untouched: prefix caching on/off for the RAG
    shape, and speculative decoding with a 1.5B draft model.
-2. **A GSM8K guard for the E4 arms.** The quality guard covers BF16/AWQ/GPTQ but
-   not GGUF Q4_K_M, so E4 currently makes no quality claim about either arm.
-3. **The keep-alive result deserves a second client.** Everything here is
+2. **The keep-alive result deserves a second client.** Everything here is
    measured through `vllm bench serve`; whether the 59% is a property of that
-   client's connection pooling or of vLLM's HTTP layer is not established.
+   client's connection pooling or of vLLM's HTTP layer is not established. The
+   n=200 guards go through `urllib` instead, but they are serial and unbatched,
+   so they exercise the transport without exercising the pathology.
 
 ## Rules that bit hard here — do not relax them
 
@@ -136,3 +202,23 @@ Nothing blocking v0.1. Optional next work, in rough order of value:
 - **`analyze.py all` needs the venv python.** System `python3` lacks
   matplotlib; the tables are written before it reaches the plots, so a partial
   run looks like a success. Use `~/wattbench-venv/bin/python ./analyze.py all`.
+- **Render the chart before believing the code that draws it.** The
+  cost-vs-volume chart passed code review and then rendered with six defects:
+  matplotlib read the bare dollar signs in a legend label as mathtext and set
+  "$2,100 over 3 yr" as italic algebra, the title overran the figure, the
+  footnote sat on top of the x-label, and three labels collided. None of them
+  are visible in the source. A chart is a build artifact and looking at it is
+  the test.
+- **The idle floor can move as a whole, not only bimodally.** The fourteenth
+  baseline came back with a median of 23.53 W against the 18.73–22.16 W band of
+  the other thirteen, its *minimum* sample above every prior median, and only
+  3.4% excursions — so the robust gate passed and the documented bimodality was
+  not the explanation. Idle temperature was 44–51 °C against 36–49 °C before.
+  Raw J/token is baseline-independent and unaffected; net J/token measured in
+  such a session carries a systematic offset against older arms, which is a
+  thing to state rather than to average away.
+- **A checker's assertion can be the defect.** `verify_readme.py` first reported
+  the README's "19.7M tok/day" as untraceable; the computed value was 19.66M,
+  i.e. the same number at a different rounding, and the string comparison was
+  wrong rather than the document. Compare numbers numerically, and read a
+  failure as "one of these two is wrong" rather than as "the artifact is wrong".

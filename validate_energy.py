@@ -97,6 +97,10 @@ def check_baselines() -> None:
             "series": d.get("series") or name.split("__")[1] if "__" in name else None,
             "w": power_log.baseline_idle_w(d),
             "mean_w": d.get("idle_power_w_mean") or d.get("mean_power_w"),
+            # The lowest sample in the window. A median can be lifted by
+            # excursions; a minimum cannot, so it is the honest witness to
+            # whether the floor itself has moved.
+            "min_w": (d.get("power_w") or {}).get("min"),
             "spread": robust.get("iqr_over_median"),
             "excursion_frac": robust.get("excursion_frac"),
             "util": d.get("util_gpu_pct_mean"),
@@ -163,9 +167,30 @@ def check_baselines() -> None:
             mdrift = (max(means) - min(means)) / statistics.fmean(means)
             detail += (
                 f" The same windows span {min(means):.2f}-{max(means):.2f} W by "
-                f"*mean* ({mdrift:.1%}), which is the bimodality this project "
-                f"subtracts the median to avoid, not real drift in the floor."
+                f"*mean* ({mdrift:.1%}); most of that wider spread is the "
+                f"bimodality this project subtracts the median to avoid rather "
+                f"than movement in the floor itself."
             )
+        # The floor does move as well, though, and saying otherwise stopped
+        # being true at the fourteenth baseline: report any window whose whole
+        # distribution sits above the others rather than asserting there is no
+        # drift. Judged on the minimum sample, because a median can be lifted by
+        # excursions while a minimum cannot.
+        mins = [(r["series"], r["min_w"]) for r in rows if r.get("min_w") is not None]
+        others = sorted(vals)
+        if mins:
+            shifted = [(s, m) for s, m in mins if m > others[len(others) // 2]]
+            if shifted:
+                worst_s, worst_m = max(shifted, key=lambda p: p[1])
+                detail += (
+                    f" {len(shifted)} of {len(mins)} windows have a *minimum* "
+                    f"sample above the median of all baseline medians "
+                    f"({others[len(others) // 2]:.2f} W) — worst {worst_s} at "
+                    f"{worst_m:.2f} W — which is the floor itself moving, not "
+                    f"bimodality. Raw J/token is unaffected; net J/token measured "
+                    f"in such a session carries a systematic offset against arms "
+                    f"measured in others."
+                )
         record("idle_baseline_drift_between_sessions", INFO, detail)
 
     n_exc = sum(1 for r in rows if (r["excursion_frac"] or 0) > 0)
