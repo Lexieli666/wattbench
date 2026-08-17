@@ -1028,6 +1028,116 @@ def breakeven_tokens_per_day(amort_usd_per_day: float,
     return amort_usd_per_day * 1e6 / spread
 
 
+def owned_usd_per_1m_at_volume(amort_usd_per_day: float,
+                               marginal_per_1m: float,
+                               v_per_day: float) -> float:
+    """Owned-hardware $/1M output tokens at a daily output volume V.
+
+    Amortisation is a fixed *daily* cost, so it is spread over however many
+    tokens the day actually produced: amort_per_day / (V/1e6). Electricity is
+    the flat measured marginal cost per 1M tokens and does not move with V.
+
+    Duty cycle is not a second free parameter to multiply by. At volume V the
+    card only needs to run V/(throughput*86400) of the day, so duty is
+    *determined* by V; multiplying an already-volume-dependent figure by a duty
+    factor would count the same effect twice.
+    """
+    if v_per_day <= 0:
+        return float("nan")
+    return amort_usd_per_day * 1e6 / v_per_day + marginal_per_1m
+
+
+# The duty cycles the sensitivity table quotes, and the ticks the chart's
+# secondary axis carries, so the two can be read against each other.
+DUTY_MARKS = (1.0, 0.5, 0.25, 0.10, 0.01)
+VOLUME_FLOOR = 1e4          # left edge of the cost-vs-volume chart, tok/day
+VOLUME_GRID_N = 600
+
+
+def volume_grid(daily_capacity: float, lo: float = VOLUME_FLOOR,
+                n: int = VOLUME_GRID_N) -> list[float]:
+    """Log-spaced daily output volumes from `lo` to the card's daily capacity."""
+    hi = max(daily_capacity, lo * 10)
+    step = (hi / lo) ** (1.0 / (n - 1))
+    return [lo * step ** i for i in range(n)]
+
+
+def comparable_api_levels(pricing: dict, in_tok: float, out_tok: float,
+                          limit: int = 3) -> list[tuple[float, str]]:
+    """Effective $/1M-out levels for weight-class-comparable hosted models.
+
+    Frontier rows are deliberately excluded from any chart that draws a
+    crossing: a crossing implies an available trade, and the capability
+    evidence in this project does not support that for frontier models.
+
+    Which comparable rows: the cheapest, the dearest, and the one nearest the
+    geometric middle of them. That spans the price range a reader actually
+    faces, and it keeps the drawn levels far enough apart on a log axis to be
+    legible — taking the first three in file order puts $0.60 and $0.72 nine
+    pixels apart and their labels on top of each other.
+    """
+    priced: list[tuple[float, str]] = []
+    for api in pricing["api_prices"].get("open_weight_hosted", []):
+        if not api.get("weight_class_comparable"):
+            continue
+        eff = api_effective_out_price(api["usd_per_1m_input"],
+                                      api["usd_per_1m_output"], in_tok, out_tok)
+        name = api["model"].split("/")[-1]
+        for suffix in ("-Instruct-Turbo", "-Instruct-Lite", "-Instruct"):
+            name = name.replace(suffix, "")
+        priced.append((eff, f"{api['provider']} {name}"))
+    priced.sort()
+    if len(priced) <= limit:
+        return priced
+    lo, hi = priced[0], priced[-1]
+    mid_target = math.sqrt(lo[0] * hi[0])
+    mid = min(priced[1:-1], key=lambda p: abs(math.log(p[0]) - math.log(mid_target)))
+    return [lo, mid, hi][:limit]
+
+
+def curve_crossing(grid: list[float], curve: list[float], level: float) -> float | None:
+    """Where the sampled cost curve crosses a horizontal price level.
+
+    Read off the *plotted* samples by log-log interpolation rather than from
+    the closed form, so that comparing it against breakeven_tokens_per_day is
+    a real check on the chart and not a restatement of the same algebra.
+    """
+    for i in range(1, len(grid)):
+        y0, y1 = curve[i - 1], curve[i]
+        if y0 == y1:
+            continue
+        if (y0 - level) * (y1 - level) <= 0:
+            t = (math.log(level) - math.log(y0)) / (math.log(y1) - math.log(y0))
+            return math.exp(math.log(grid[i - 1])
+                            + t * (math.log(grid[i]) - math.log(grid[i - 1])))
+    return None
+
+
+def crossing_self_check(amort_day: float, e_cost: float, daily_capacity: float,
+                        levels: list[tuple[float, str]]) -> tuple[float | None, list[str]]:
+    """Compare chart crossings against the break-even table, and report the gap.
+
+    If a crossing disagrees with the table, one of the two is wrong; this says
+    so before the chart ships rather than after.
+    """
+    grid = volume_grid(daily_capacity)
+    curve = [owned_usd_per_1m_at_volume(amort_day, e_cost, v) for v in grid]
+    worst: float | None = None
+    notes: list[str] = []
+    for level, name in levels:
+        table_v = breakeven_tokens_per_day(amort_day, e_cost, level)
+        chart_v = curve_crossing(grid, curve, level)
+        if table_v is None or chart_v is None:
+            notes.append(f"{name}: crossing off-chart (break-even "
+                         f"{'never' if table_v is None else f'{table_v:,.0f}/day'})")
+            continue
+        rel = abs(chart_v - table_v) / table_v
+        worst = rel if worst is None else max(worst, rel)
+        notes.append(f"{name} ${level:.2f}: chart {chart_v / 1e6:.4f}M vs table "
+                     f"{table_v / 1e6:.4f}M tok/day")
+    return worst, notes
+
+
 def pick_economics_point(rows: list[dict]) -> dict | None:
     """The load point the headline numbers are quoted at.
 
@@ -1132,11 +1242,65 @@ def cmd_economics(args: argparse.Namespace) -> str:
         ])
     lines.append(md_table(["Line", "$/1M output tokens", "sensitivity band"], cost_rows))
     lines.append("")
-    lines.append("The amortisation line assumes the card is **busy at this throughput "
-                 "every hour of its three-year life**. That is the most generous "
-                 "possible assumption for owning; at 10% duty cycle the amortised "
-                 f"figure is 10x higher (${amort_per_1m * 10:.2f}/1M).")
+    lines.append("Those rows assume the card is **busy at this throughput every hour of "
+                 "its three-year life** — the most generous possible assumption for "
+                 "owning. The next section prices every other case.")
     lines.append("")
+
+    # --- duty-cycle sensitivity ------------------------------------------
+    daily_capacity_pre = tput * 86400
+    lines += [
+        "### Sensitivity to duty cycle",
+        "",
+        "Nobody runs a 4090 flat out for three years, so the $/1M above is a "
+        "best case. Duty cycle is **not a free parameter to multiply by**: at a "
+        "daily output volume $V$ the card only has to run "
+        f"$V / ({fmt(tput, '.4g')} \\times 86400)$ of the day, so duty cycle is "
+        "*determined* by $V$. Amortisation is a fixed daily cost spread over "
+        "whatever the day produced:",
+        "",
+        "```",
+        "owned $/1M at volume V  =  amortisation_per_day / (V/1e6)  +  electricity_per_1M",
+        f"                        =  ${amort_day:.3f} / (V/1e6)  +  ${e_cost:.3f}",
+        "```",
+        "",
+        "Two consequences, and the second is the one that matters. The **break-even "
+        "volumes below do not move** with duty cycle — they already are the "
+        "statement about it, because amortisation is daily and cancels the same "
+        "way on both sides. What does move is the **owned $/1M**, which is only "
+        f"${owned_total:.3f} at full duty and rises without limit as $V$ falls:",
+        "",
+    ]
+    duty_rows = []
+    for duty in DUTY_MARKS:
+        v = daily_capacity_pre * duty
+        amort_component = amort_day * 1e6 / v
+        total = owned_usd_per_1m_at_volume(amort_day, e_cost, v)
+        duty_rows.append([
+            f"{duty * 100:g}%",
+            f"{v / 1e6:,.2f}M tok/day",
+            f"${amort_component:.3f}",
+            f"${e_cost:.3f}",
+            f"**${total:.3f}**",
+            f"{total / owned_total:.1f}×",
+        ])
+    lines.append(md_table(
+        ["duty cycle", "daily output volume", "amortisation $/1M",
+         "electricity $/1M", "owned total $/1M", "vs full duty"],
+        duty_rows,
+    ))
+    lines += [
+        "",
+        "Electricity is the flat column: it is a marginal cost, so an idle hour "
+        "costs no tokens and no dollars of it. Everything that moves is "
+        "amortisation, and it moves inversely with volume — which is why a card "
+        "used lightly is expensive per token no matter how efficient it is while "
+        "running.",
+        "",
+        "The full curve, with the API price levels drawn across it, is "
+        "`results/plots/e5_cost_vs_volume.png`.",
+        "",
+    ]
 
     # --- break-even -------------------------------------------------------
     lines += [
@@ -1195,6 +1359,20 @@ def cmd_economics(args: argparse.Namespace) -> str:
          "effective $/1M out", "break-even", "feasibility"],
         be_rows,
     ))
+    levels = comparable_api_levels(pricing, in_tok, out_tok)
+    worst, notes = crossing_self_check(amort_day, e_cost, daily_capacity, levels)
+    if worst is not None:
+        lines += [
+            "",
+            f"**Self-check.** The cost-vs-volume chart draws the same owned-cost "
+            f"curve and the same price levels, so where it crosses each level must "
+            f"be the break-even volume in this table. Read off the plotted samples "
+            f"by interpolation rather than from the formula, the two agree to "
+            f"within **{worst:.4%}** across the {len(levels)} comparable-weight-class "
+            f"levels drawn — {'; '.join(notes)}. The residual is the chart's grid "
+            f"resolution, not a disagreement.",
+        ]
+
     lines += [
         "",
         "The *comparable weight class* column is the one that decides whether a row "
@@ -1406,6 +1584,147 @@ def plot_breakeven(rows: list[dict], pricing: dict, path: str,
     return True
 
 
+def plot_cost_vs_volume(rows: list[dict], pricing: dict, path: str) -> bool:
+    """Owned $/1M output tokens against daily volume — the duty-cycle answer.
+
+    The break-even chart asks "how cheap is the card when it is busy". This one
+    asks the question a reader asks next: "what if it is not". Volume is the
+    honest x-axis because duty cycle follows from it (V / daily capacity), so
+    the same curve carries both readings and neither can be double-counted.
+    """
+    plt = _style()
+    point = pick_economics_point(rows)
+    if point is None:
+        return False
+
+    rate = pricing["electricity"]["primary"]["usd_per_kwh"]
+    e_band = pricing["electricity"].get("sensitivity_band_usd_per_kwh")
+    card = pricing["hardware"]["gpu"]["street_price_usd"]
+    card_band = pricing["hardware"]["gpu"]["street_price_band_usd"]
+    years = pricing["hardware"]["amortization_years"]
+
+    tput = point["out_tok_throughput"]
+    jtok = point["j_per_out_tok"]
+    daily_capacity = tput * 86400
+    e_cost = energy_cost_per_1m_out(jtok, rate)
+    amort_day = owned_amortization_usd_per_hour(card, years) * 24
+
+    grid = volume_grid(daily_capacity)
+    curve = [owned_usd_per_1m_at_volume(amort_day, e_cost, v) for v in grid]
+
+    fig, ax = plt.subplots(figsize=(8.0, 5.0))
+
+    # Uncertainty band: the cheap card at the cheap tariff against the dear card
+    # at the dear tariff. Both inputs are sourced, and both are carried rather
+    # than collapsed into one line, because the answer is sensitive to each.
+    lo_day = owned_amortization_usd_per_hour(card_band[0], years) * 24
+    hi_day = owned_amortization_usd_per_hour(card_band[1], years) * 24
+    lo_e = energy_cost_per_1m_out(jtok, e_band[0]) if e_band else e_cost
+    hi_e = energy_cost_per_1m_out(jtok, e_band[1]) if e_band else e_cost
+    band_lo = [owned_usd_per_1m_at_volume(lo_day, lo_e, v) for v in grid]
+    band_hi = [owned_usd_per_1m_at_volume(hi_day, hi_e, v) for v in grid]
+    # NB: matplotlib reads a bare "$" as mathtext, so every dollar sign that
+    # reaches a label is escaped. An unescaped pair renders "$2,100 over 3 yr"
+    # as italic algebra.
+    band_label = (f"card \\${card_band[0]:,}–\\${card_band[1]:,}, "
+                  f"electricity \\${e_band[0]}–\\${e_band[1]}/kWh"
+                  if e_band else f"card \\${card_band[0]:,}–\\${card_band[1]:,}")
+    ax.fill_between(grid, band_lo, band_hi, color=C["blue"], alpha=0.13,
+                    linewidth=0, label=band_label)
+
+    ax.plot(grid, curve, color=C["blue"], linewidth=2.2,
+            label=f"Owned 4090 (\\${card:,} over {years:g} yr + \\${rate}/kWh)")
+
+    # Electricity floor: the curve's asymptote, and the reason owning can never
+    # get cheaper than this however much volume is put through the card.
+    ax.axhline(e_cost, color=INK_MUTED, linestyle=(0, (2, 3)), linewidth=1.2)
+    ax.annotate(f"electricity alone — \\${e_cost:.3f}", (VOLUME_FLOOR * 1.15, e_cost),
+                xytext=(0, 4), textcoords="offset points", fontsize=8.5,
+                color=INK_MUTED, va="bottom", ha="left")
+
+    in_tok = point["total_input_tokens"] or 1
+    out_tok = point["total_output_tokens"] or 1
+    levels = comparable_api_levels(pricing, in_tok, out_tok)
+    api_slots = [C["aqua"], C["violet"], C["magenta"]]
+    for i, (eff, name) in enumerate(levels):
+        colour = api_slots[i % len(api_slots)]
+        ax.axhline(eff, color=colour, linestyle=(0, (5, 3)), linewidth=1.5)
+        ax.annotate(f"{name} — \\${eff:.2f}", (VOLUME_FLOOR * 1.15, eff),
+                    xytext=(0, 4), textcoords="offset points", fontsize=8.5,
+                    color=colour, va="bottom", ha="left")
+        cross = curve_crossing(grid, curve, eff)
+        if cross is None:
+            continue
+        ax.plot([cross], [eff], marker="o", color=colour, markersize=7,
+                markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=5)
+        vlabel = (f"{cross / 1e6:,.1f}M/day" if cross >= 1e6
+                  else f"{cross / 1e3:,.0f}k/day")
+        # Below-left of each crossing: the curve bounds that wedge from above,
+        # so it is the one quadrant guaranteed empty. Below-right runs the
+        # label into the next crossing marker.
+        ax.annotate(vlabel, (cross, eff), xytext=(-7, -9),
+                    textcoords="offset points", fontsize=8.5, color=colour,
+                    va="top", ha="right")
+
+    full_duty = owned_usd_per_1m_at_volume(amort_day, e_cost, daily_capacity)
+    ax.plot([daily_capacity], [full_duty], marker="D", color=C["blue"],
+            markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=5)
+    # To the right of the endpoint: above it collides with the cheapest API
+    # level, below it collides with the electricity floor.
+    ax.annotate(f"100% duty\n\\${full_duty:.3f}", (daily_capacity, full_duty),
+                xytext=(9, 0), textcoords="offset points", fontsize=8.5,
+                color=C["blue"], va="center", ha="left")
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    # Headroom past the endpoint so its direct label is not clipped; the duty
+    # axis above is the same axis rescaled, so it ends past 100% by the same
+    # margin and carries no tick there.
+    ax.set_xlim(VOLUME_FLOOR, daily_capacity * 1.55)
+    ax.set_xlabel("Daily output volume (tokens/day)")
+    ax.set_ylabel("Owned-hardware cost per 1M output tokens (USD)")
+    ax.set_title("Owning is cheap only if the card is busy\n"
+                 f"RTX 4090, Qwen2.5-7B BF16, vLLM — {shape_of(point)} at "
+                 f"{fmt(tput, '.4g')} tok/s")
+
+    def _fmt_vol(v: float, _pos: int = 0) -> str:
+        if v >= 1e6:
+            return f"{v / 1e6:g}M"
+        if v >= 1e3:
+            return f"{v / 1e3:g}k"
+        return f"{v:g}"
+
+    import matplotlib.ticker as mticker
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(_fmt_vol))
+
+    # Duty cycle is the same axis in different units: V / daily capacity. A
+    # secondary axis says so exactly, where a second annotated line would invite
+    # reading it as an independent variable.
+    secax = ax.secondary_xaxis(
+        "top", functions=(lambda v: v / daily_capacity,
+                          lambda d: d * daily_capacity))
+    secax.set_xscale("log")
+    secax.set_xlabel("Duty cycle at this operating point")
+    secax.set_xticks([d for d in (1.0, 0.5, 0.25, 0.1, 0.01, 0.001, 1e-4)
+                      if d * daily_capacity >= VOLUME_FLOOR])
+    secax.xaxis.set_major_formatter(mticker.FuncFormatter(
+        lambda d, _p: f"{d * 100:g}%"))
+    secax.xaxis.set_minor_locator(mticker.NullLocator())
+    secax.tick_params(labelsize=9, colors=INK_2)
+    secax.spines["top"].set_color(GRID)
+
+    ax.legend(loc="upper right", fontsize=8.5)
+    _finish(ax, plt, path,
+            "Measured throughput and J/token from this machine; card price, "
+            "amortisation term and tariff are sourced (see pricing.yaml).\n"
+            "Dashed levels are vendor list prices — reported, not measured — "
+            "blended to an effective output price at the benchmarked\n"
+            "input:output ratio. Each marker is the break-even volume in "
+            "results/tables/e5_economics.md, read off this curve.",
+            bottom=0.09)
+    return True
+
+
 def plot_goodput(rows: list[dict], path: str, shape: str | None = None) -> bool:
     """Offered vs achieved vs SLO-meeting throughput — where saturation begins.
 
@@ -1543,6 +1862,8 @@ def cmd_plots(args: argparse.Namespace) -> str:
                 else f"e5_cost_per_1m_vs_load__{slug}.png")
         if plot_breakeven(rows, pricing, os.path.join(PLOTS, name), shape=shape):
             made.append(name)
+    if plot_cost_vs_volume(rows, pricing, os.path.join(PLOTS, "e5_cost_vs_volume.png")):
+        made.append("e5_cost_vs_volume.png")
     for shape in shapes:
         slug = shape.replace("/", "_").replace(" ", "")
         name = ("e1_goodput_vs_load.png" if len(shapes) == 1

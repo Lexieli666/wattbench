@@ -99,7 +99,35 @@ chat, **2 req/s** RAG (2048 in / 256 out).
 
 ### 3. Cost per 1M output tokens, and break-even
 
-At the best SLO-meeting point measured (12 req/s, 1515 tok/s sustained):
+The single number people quote for self-hosting — "$0.037 per 1M tokens" —
+is true only of a card that never stops. What it actually costs depends on how
+much work you give it, because amortisation is a fixed daily cost spread over
+whatever the day produced:
+
+![Owned cost per 1M tokens vs daily volume](results/plots/e5_cost_vs_volume.png)
+
+Duty cycle is **not a free parameter** here: at daily output volume *V* the card
+only has to run *V* / (1515 × 86400) of the day, so duty follows from volume and
+the top axis is the bottom axis rescaled. Read the same curve as a table:
+
+| duty cycle | daily output volume | amortisation $/1M | electricity $/1M | **owned total $/1M** |
+|---|---|---|---|---|
+| 100% | 130.9M tok/day | $0.015 | $0.023 | **$0.037** |
+| 50% | 65.5M tok/day | $0.029 | $0.023 | **$0.052** |
+| 25% | 32.7M tok/day | $0.059 | $0.023 | **$0.081** |
+| 10% | 13.1M tok/day | $0.146 | $0.023 | **$0.169** |
+| 1% | 1.31M tok/day | $1.464 | $0.023 | **$1.487** |
+
+Electricity is the flat column — an idle hour burns no tokens and no dollars of
+it. Everything that moves is the card, and it moves inversely with volume, which
+is why **a lightly used 4090 is expensive per token no matter how efficient it
+is while running**: below ~43k output tokens/day, this card's cost per million
+tokens exceeds even Anthropic's Opus list price. That is a statement about
+price alone — a local 7B is no substitute for a frontier model, and this repo
+never claims otherwise.
+
+The full-duty case, which is the floor of that curve and the best case for
+owning, priced against renting the same card:
 
 | Line | $/1M output tokens |
 |---|---|
@@ -108,10 +136,10 @@ At the best SLO-meeting point measured (12 req/s, 1515 tok/s sustained):
 | **Owned hardware, total** | **$0.037** |
 | Hypothetical rental (RunPod 4090, $0.34/hr, *reported*) | $0.062 |
 
-![Cost per 1M tokens vs load](results/plots/e5_cost_per_1m_vs_load__512in_128out.png)
-
 Break-even against hosted APIs, blended to an effective output price at the
-benchmarked 4:1 input:output ratio — **all API prices reported, not measured**:
+benchmarked 4:1 input:output ratio — **all API prices reported, not measured**.
+These are the crossings marked on the chart, and they do **not** move with duty
+cycle: amortisation is daily on both sides of the comparison and cancels.
 
 | API | comparable weight class | effective $/1M out | break-even |
 |---|---|---|---|
@@ -123,8 +151,12 @@ benchmarked 4:1 input:output ratio — **all API prices reported, not measured**
 **The card pays for itself at ~1.3M output tokens/day against the closest
 like-for-like hosted option** — under 1% of what it can actually serve. Even
 against the cheapest hosted small model on the list, break-even is 15% duty
-cycle. The amortisation line assumes the card is busy at 1515 tok/s every hour
-of three years; at 10% duty cycle the amortised component is 10× higher.
+cycle.
+
+The same cost, plotted against *offered load* rather than daily volume — the
+view that shows batching doing the work:
+
+![Cost per 1M tokens vs load](results/plots/e5_cost_per_1m_vs_load__512in_128out.png)
 
 ### 4. What int4 buys on 24 GB
 
