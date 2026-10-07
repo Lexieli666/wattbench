@@ -1,0 +1,27 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/339 [00:00<?, ?it/s]Loading weights: 100%|██████████| 339/339 [00:00<00:00, 3747.68it/s]
+[pytorch_server] 10:15:01 Model loading took 3.5 s: Qwen/Qwen2.5-7B-Instruct
+[pytorch_server] 10:15:01 weights 14.19 GiB in bfloat16, attn_implementation=sdpa, torch 2.11.0+cu130, compile=off
+[pytorch_server] 10:15:01 device NVIDIA GeForce RTX 4090: 8.10 GiB free of 23.99 GiB after load; allocated 14.23 GiB
+/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+[pytorch_server] 10:15:01 serving Qwen/Qwen2.5-7B-Instruct on http://127.0.0.1:8000 (max_batch_size=32, batch_wait_ms=0.0, max_model_len=4096)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 46556)
+Traceback (most recent call last):
+  File "/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/socketserver.py", line 766, in __init__
+    self.handle()
+  File "/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/http/server.py", line 442, in handle
+    self.handle_one_request()
+  File "/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/http/server.py", line 408, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/socket.py", line 720, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+----------------------------------------

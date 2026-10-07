@@ -1,0 +1,57 @@
+{
+  "available": true,
+  "n_samples": 101,
+  "window_s": 203.667,
+  "num_requests_running": {
+    "min": 0.0,
+    "mean": 19.9703,
+    "p95": 31.0,
+    "max": 31.0
+  },
+  "num_requests_waiting": {
+    "min": 0.0,
+    "mean": 10.7228,
+    "p95": 31.0,
+    "max": 31.0
+  },
+  "memory_allocated_bytes": {
+    "min": 15285891072.0,
+    "mean": 15965684350.7327,
+    "p95": 16457502208.0,
+    "max": 16766072320.0
+  },
+  "max_memory_allocated_bytes": {
+    "min": 18465027584.0,
+    "mean": 18465027584.0,
+    "p95": 18465027584.0,
+    "max": 18465027584.0
+  },
+  "memory_reserved_bytes": {
+    "min": 19140706304.0,
+    "mean": 19143696302.8911,
+    "p95": 19159580672.0,
+    "max": 19159580672.0
+  },
+  "max_memory_reserved_bytes": {
+    "min": 19140706304.0,
+    "mean": 19143696302.8911,
+    "p95": 19159580672.0,
+    "max": 19159580672.0
+  },
+  "batch_size_last": {
+    "min": 1.0,
+    "mean": 21.198,
+    "p95": 31.0,
+    "max": 31.0
+  },
+  "prompt_tokens_total_delta": 409600.0,
+  "generation_tokens_total_delta": 101200.0,
+  "cuda_time_total_ms_delta": 190104.4,
+  "prefill_time_total_ms_delta": 39361.255,
+  "generate_calls_total_delta": 49.0,
+  "queue_growth": {
+    "first_quarter_mean": 10.44,
+    "last_quarter_mean": 12.84,
+    "growing": true
+  }
+}

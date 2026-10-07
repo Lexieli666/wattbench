@@ -691,6 +691,48 @@ third quantization format and a third set of serving defaults to a comparison
 that is already carrying one large caveat. Recorded as a deliberate omission
 rather than an oversight.
 
+### Driver drift: the E4 table is one session on driver 610.60 (2026-10-07)
+
+**Dated 2026-10-07.** The E4 table was first measured on 2026-08-15 on NVIDIA
+driver 595.95. A drift check on 2026-10-07 re-ran the vLLM c8 point on driver
+610.60, with vLLM 0.26.0, torch 2.11.0 and the AWQ weights (`b250375`) all
+unchanged. Throughput moved **+7.1%** and TTFT p95 **−11%**. Both moves are
+larger than any variance bar in this project: E0's unsaturated bar is 0.48% on
+TTFT p95, and cross-session tail latency drifts ~2%. The driver is the one
+change the records show, though one pair of sessions cannot prove it is the
+cause.
+
+**The shift depended on the stack, so it is not a constant offset.** All six
+vLLM and llama.cpp points were re-measured the same afternoon:
+
+| point | out tok/s, 595.95 → 610.60 | TTFT p95 | J / output token |
+|---|---|---|---|
+| vLLM c1 | 148.9 → 158.1 (+6.1%) | −12% | −1.4% |
+| vLLM c8 | 820.2 → 880.4 (+7.3%) | −11% | −1.2% |
+| vLLM c32 | 1542 → 1664.5 (+7.9%) | −8.1% | −1.4% |
+| llama.cpp c1 | 145.6 → 146.5 (+0.6%) | +75% | −0.3% |
+| llama.cpp c8 | 482.8 → 489.5 (+1.4%) | +8.7% | −0.5% |
+| llama.cpp c32 | 755.6 → 761.1 (+0.7%) | −1.0% | −0.3% |
+
+vLLM gained 6–8% throughput, about +6% at concurrency 1, where llama.cpp gained
+under 1%. The concurrency-1 gap between the two stacks therefore went from 2.2%
+to 7.3%. llama.cpp's concurrency-1 TTFT moved the other way across the whole
+distribution (median 66 → 84 ms) while its ITL did not move. A cross-session
+shift that differs by stack, and by metric within a stack, cannot be removed
+with an offset. A table that mixed sessions would be wrong by a different
+amount in each cell, so **the same-session re-measurement was required, not
+optional.**
+
+**What was done.** The E4 stack table was re-measured as one session on
+610.60. A fresh idle baseline (`E4-session2`, 20.39 W median) came first, then
+the six vLLM and llama.cpp points, then the three HF + PyTorch points (§7c),
+back to back. The re-measured vLLM c8 point reproduced the morning drift check
+to 0.2% (880.4 against 878.4 tok/s). The August records are kept in
+`results/raw/` and superseded rather than deleted (§5). Three things were not
+re-run: the transport controls below, the `max_num_seqs` control (README §6)
+and the guards. Each control is a comparison within the August session on
+595.95, and a GSM8K score does not depend on the session.
+
 ### The HTTP transport is part of the measurement, and it had to be pinned
 
 This was the largest single measurement error found in the project, and it was
@@ -711,7 +753,7 @@ minor inefficiency:
 The two stacks pay in different currencies — llama.cpp in dropped requests,
 vLLM in throughput — which is exactly what makes it dangerous: measured with
 reuse on, llama.cpp appears **2.35× faster than vLLM at concurrency 1**, where
-the two are in fact within 2.2%.
+the two were in fact within 2.2% in the August session.
 
 It is not a client-clock artefact. Mean GPU power, which is server-side
 telemetry, moved 185 → 300 W at concurrency 1 on identical work, and integrated
@@ -832,7 +874,8 @@ than leaving a reader to infer it.
 drift (§2: ~2% on tail latency) on top of the within-session bar, which is
 why `run_e4_pytorch.sh` asks for a fresh idle baseline and recommends
 re-running one vLLM point in the same session as a drift check. Each record
-carries its session either way.
+carries its session either way. Since 2026-10-07 the three arms in the table
+are one session (§7b, the driver-drift note).
 
 **Three columns are empty for this arm, and the absences are findings:**
 
@@ -854,6 +897,31 @@ Poisson arrivals the server would recompile its way through the measurement.
 So `e4_pytorch_bf16_c8_compile` is run at fixed concurrency only, with a
 warmup sized for the compile, and is reported as a control row under the
 PyTorch arm rather than as a fourth stack or in the guard.
+
+**The control was not run in the 2026-10-07 session. It was dropped, and this
+is why.** Its first attempt that morning crashed during warmup. Wrapping
+`model.forward` also compiled `generate()`'s prefill, which is where
+transformers 5.x allocates the static KV cache, so the cache lived in the
+CUDA-graph pool and the next replay overwrote it. That is fixed (the recipe
+above), and a smoke test served 192 + 64 requests at concurrency 8 with no
+error.
+
+The same smoke test showed why the control cannot be measured under this
+protocol as it stands. The client holds concurrency in a closed loop
+(`--max-concurrency 8`) and `batch_wait_ms` is 0, so each static batch's size
+depends on when requests happen to arrive. The 192-prompt warmup formed only
+batches of 4. The next 64 prompts formed batches of 1 and 7, and each new batch
+size is a new CUDA-graph shape that `torch._dynamo` recompiled, at roughly 15 s
+each. In a measured run those recompiles would land inside the window.
+
+A longer warmup cannot guarantee it covers a set of shapes that depends on
+timing, and the window is never widened to absorb a stall. So the control was
+dropped for this session rather than measured with recompiles inside it. A
+compiled control needs fixed shapes: either batches padded to
+`max_batch_size`, or a warmup that walks every batch size (shape buckets)
+before the window opens. Which one to use is the owner's choice, and neither
+is implemented. The failed first record stays in `results/raw/` with status
+`failed`, outside every table.
 
 **Quality guard.** The arm goes through `gsm8k_guard.py` at n=200, same
 subset draw as the other two E4 arms, same greedy decoding, same transport,

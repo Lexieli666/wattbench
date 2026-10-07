@@ -1,0 +1,857 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/339 [00:00<?, ?it/s]Loading weights: 100%|██████████| 339/339 [00:00<00:00, 3930.17it/s]
+[pytorch_server] 10:12:58 Model loading took 5.3 s: Qwen/Qwen2.5-7B-Instruct
+[pytorch_server] 10:12:58 weights 14.19 GiB in bfloat16, attn_implementation=sdpa, torch 2.11.0+cu130, compile=on:reduce-overhead
+[pytorch_server] 10:12:58 device NVIDIA GeForce RTX 4090: 8.10 GiB free of 23.99 GiB after load; allocated 14.23 GiB
+/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/profiler/profiler.py:224: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+[pytorch_server] 10:12:58 serving Qwen/Qwen2.5-7B-Instruct on http://127.0.0.1:8000 (max_batch_size=32, batch_wait_ms=0.0, max_model_len=4096)
+/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py:322: UserWarning: TensorFloat32 tensor cores for float32 matrix multiplication available but not enabled. Consider setting `torch.set_float32_matmul_precision('high')` for better performance.
+  warnings.warn(
+In file included from /home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/include/python3.12/Python.h:12,
+                 from /tmp/tmpfeahwkd7/__triton_launcher.c:7:
+/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/include/python3.12/pyconfig.h:1877:9: warning: ‘_POSIX_C_SOURCE’ redefined
+ 1877 | #define _POSIX_C_SOURCE 200809L
+      |         ^~~~~~~~~~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdlib.h:26,
+                 from /home/yzhao/wattbench-venv/lib/python3.12/site-packages/triton/backends/nvidia/include/cuda.h:56,
+                 from /tmp/tmpfeahwkd7/__triton_launcher.c:2:
+/usr/include/features.h:319:10: note: this is the location of the previous definition
+  319 | # define _POSIX_C_SOURCE        202405L
+      |          ^~~~~~~~~~~~~~~
+In file included from /home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/include/python3.12/Python.h:12,
+                 from /tmp/tmpkxktgow7/__triton_launcher.c:7:
+/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/include/python3.12/pyconfig.h:1877:9: warning: ‘_POSIX_C_SOURCE’ redefined
+ 1877 | #define _POSIX_C_SOURCE 200809L
+      |         ^~~~~~~~~~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdlib.h:26,
+                 from /home/yzhao/wattbench-venv/lib/python3.12/site-packages/triton/backends/nvidia/include/cuda.h:56,
+                 from /tmp/tmpkxktgow7/__triton_launcher.c:2:
+/usr/include/features.h:319:10: note: this is the location of the previous definition
+  319 | # define _POSIX_C_SOURCE        202405L
+      |          ^~~~~~~~~~~~~~~
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] skipping cudagraphs due to mutated inputs (84 instances). Found from : 
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]    File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs: BaseModelOutputWithPast = self.model(
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs = func(self, *args, **kwargs)
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states = decoder_layer(
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     return super().__call__(*args, **kwargs)
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states, _ = self.self_attn(
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 422, in update
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     self.cumulative_length.add_(kv_length)
+W1007 10:13:44.146000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] 
+Traceback (most recent call last):
+  File "/home/yzhao/wattbench/pytorch_server.py", line 340, in _loop
+    self._run_batch(batch)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench/pytorch_server.py", line 390, in _run_batch
+    self.model.generate(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2681, in generate
+    result = decoding_method(
+             ^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2895, in _sample
+    outputs = model_forward(**model_inputs, return_dict=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 905, in wrapper
+    @wraps(func)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1200, in forward
+    return compiled_fn(full_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 580, in runtime_wrapper
+    all_outs = call_func_at_runtime_with_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 138, in call_func_at_runtime_with_args
+    out = normalize_as_list(f(args))
+                            ^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 2298, in __call__
+    return self.compiled_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 783, in wrapper
+    return compiled_fn(runtime_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 1011, in inner_fn
+    outs = compiled_fn(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/output_code.py", line 656, in __call__
+    return self.current_callable(inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/zk/czkox7j5ohyuyixkfgijr76vvswdlwmeucvidhlxtgdrnqn3z3se.py", line 4857, in call
+    (buf719,) = self.partitions[0](partition0_args)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1875, in run
+    return compiled_fn(new_inputs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 436, in deferred_cudagraphify
+    fn, out = cudagraphify(model, inputs, new_static_input_idxs, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 496, in cudagraphify
+    return manager.add_function(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2448, in add_function
+    return fn, fn(inputs)
+               ^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2113, in run
+    out = self._run(new_inputs, function_id)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2195, in _run
+    return self.ids_to_funcs[function_id].model(new_inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/zk/czkox7j5ohyuyixkfgijr76vvswdlwmeucvidhlxtgdrnqn3z3se.py", line 2273, in partition_0
+    triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2.run(arg11_1, buf5, buf4, arg12_1, 3072, stream=stream0)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1448, in run
+    self.autotune_to_one_config(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1176, in autotune_to_one_config
+    timings = self.benchmark_all_configs(*args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1139, in benchmark_all_configs
+    launcher: self.bench(launcher, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 999, in bench
+    return benchmarker.benchmark(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 206, in benchmark
+    return self.benchmark_gpu(_callable, warmup=warmup, rep=rep, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 379, in benchmark_gpu
+    _callable()
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 953, in kernel_call
+    cloned_args, cloned_kwargs = self.maybe_clone_args(
+                                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1111, in maybe_clone_args
+    prepare_arg(name, arg)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1106, in prepare_arg
+    return clone_preserve_strides(arg)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/utils.py", line 3421, in clone_preserve_strides
+    buffer = torch.as_strided(x, (needed_size,), (1,)).clone()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_compile.py", line 54, in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 409, in __torch_dispatch__
+    res = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_ops.py", line 865, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: accessing tensor output of CUDAGraphs that has been overwritten by a subsequent run. Stack trace: File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+    hidden_states = decoder_layer(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+    hidden_states, _ = self.self_attn(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+    key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+    keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 426, in update
+    self.keys.index_copy_(2, cache_position, key_states). To prevent overwriting, clone the tensor outside of torch.compile() or call torch.compiler.cudagraph_mark_step_begin() before each model invocation.
+In file included from /home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/include/python3.12/Python.h:12,
+                 from /tmp/tmp0uymv1l0/__triton_launcher.c:7:
+/home/yzhao/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/include/python3.12/pyconfig.h:1877:9: warning: ‘_POSIX_C_SOURCE’ redefined
+ 1877 | #define _POSIX_C_SOURCE 200809L
+      |         ^~~~~~~~~~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/bits/libc-header-start.h:33,
+                 from /usr/include/stdlib.h:26,
+                 from /home/yzhao/wattbench-venv/lib/python3.12/site-packages/triton/backends/nvidia/include/cuda.h:56,
+                 from /tmp/tmp0uymv1l0/__triton_launcher.c:2:
+/usr/include/features.h:319:10: note: this is the location of the previous definition
+  319 | # define _POSIX_C_SOURCE        202405L
+      |          ^~~~~~~~~~~~~~~
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] skipping cudagraphs due to mutated inputs (84 instances). Found from : 
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]    File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs: BaseModelOutputWithPast = self.model(
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs = func(self, *args, **kwargs)
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states = decoder_layer(
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     return super().__call__(*args, **kwargs)
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states, _ = self.self_attn(
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 422, in update
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     self.cumulative_length.add_(kv_length)
+W1007 10:14:32.681000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] 
+Traceback (most recent call last):
+  File "/home/yzhao/wattbench/pytorch_server.py", line 340, in _loop
+    self._run_batch(batch)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench/pytorch_server.py", line 390, in _run_batch
+    self.model.generate(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2681, in generate
+    result = decoding_method(
+             ^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2895, in _sample
+    outputs = model_forward(**model_inputs, return_dict=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 905, in wrapper
+    @wraps(func)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1200, in forward
+    return compiled_fn(full_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 580, in runtime_wrapper
+    all_outs = call_func_at_runtime_with_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 138, in call_func_at_runtime_with_args
+    out = normalize_as_list(f(args))
+                            ^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 2298, in __call__
+    return self.compiled_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 783, in wrapper
+    return compiled_fn(runtime_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 1011, in inner_fn
+    outs = compiled_fn(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/output_code.py", line 656, in __call__
+    return self.current_callable(inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 4736, in call
+    (buf662,) = self.partitions[0](partition0_args)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1875, in run
+    return compiled_fn(new_inputs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 436, in deferred_cudagraphify
+    fn, out = cudagraphify(model, inputs, new_static_input_idxs, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 496, in cudagraphify
+    return manager.add_function(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2448, in add_function
+    return fn, fn(inputs)
+               ^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2113, in run
+    out = self._run(new_inputs, function_id)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2195, in _run
+    return self.ids_to_funcs[function_id].model(new_inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 2235, in partition_0
+    triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2.run(arg12_1, buf5, buf4, arg13_1, triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2_xnumel, stream=stream0)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1448, in run
+    self.autotune_to_one_config(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1176, in autotune_to_one_config
+    timings = self.benchmark_all_configs(*args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1139, in benchmark_all_configs
+    launcher: self.bench(launcher, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 999, in bench
+    return benchmarker.benchmark(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 206, in benchmark
+    return self.benchmark_gpu(_callable, warmup=warmup, rep=rep, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 379, in benchmark_gpu
+    _callable()
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 953, in kernel_call
+    cloned_args, cloned_kwargs = self.maybe_clone_args(
+                                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1111, in maybe_clone_args
+    prepare_arg(name, arg)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1106, in prepare_arg
+    return clone_preserve_strides(arg)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/utils.py", line 3421, in clone_preserve_strides
+    buffer = torch.as_strided(x, (needed_size,), (1,)).clone()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_compile.py", line 54, in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 409, in __torch_dispatch__
+    res = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_ops.py", line 865, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: accessing tensor output of CUDAGraphs that has been overwritten by a subsequent run. Stack trace: File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+    hidden_states = decoder_layer(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+    hidden_states, _ = self.self_attn(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+    key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+    keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 426, in update
+    self.keys.index_copy_(2, cache_position, key_states). To prevent overwriting, clone the tensor outside of torch.compile() or call torch.compiler.cudagraph_mark_step_begin() before each model invocation.
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] skipping cudagraphs due to mutated inputs (84 instances). Found from : 
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]    File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs: BaseModelOutputWithPast = self.model(
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs = func(self, *args, **kwargs)
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states = decoder_layer(
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     return super().__call__(*args, **kwargs)
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states, _ = self.self_attn(
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 422, in update
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     self.cumulative_length.add_(kv_length)
+W1007 10:14:33.330000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] 
+Traceback (most recent call last):
+  File "/home/yzhao/wattbench/pytorch_server.py", line 340, in _loop
+    self._run_batch(batch)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench/pytorch_server.py", line 390, in _run_batch
+    self.model.generate(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2681, in generate
+    result = decoding_method(
+             ^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2895, in _sample
+    outputs = model_forward(**model_inputs, return_dict=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 905, in wrapper
+    @wraps(func)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1200, in forward
+    return compiled_fn(full_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 580, in runtime_wrapper
+    all_outs = call_func_at_runtime_with_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 138, in call_func_at_runtime_with_args
+    out = normalize_as_list(f(args))
+                            ^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 2298, in __call__
+    return self.compiled_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 783, in wrapper
+    return compiled_fn(runtime_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 1011, in inner_fn
+    outs = compiled_fn(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/output_code.py", line 656, in __call__
+    return self.current_callable(inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 4736, in call
+    (buf662,) = self.partitions[0](partition0_args)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1875, in run
+    return compiled_fn(new_inputs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 436, in deferred_cudagraphify
+    fn, out = cudagraphify(model, inputs, new_static_input_idxs, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 496, in cudagraphify
+    return manager.add_function(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2448, in add_function
+    return fn, fn(inputs)
+               ^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2113, in run
+    out = self._run(new_inputs, function_id)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2195, in _run
+    return self.ids_to_funcs[function_id].model(new_inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 2235, in partition_0
+    triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2.run(arg12_1, buf5, buf4, arg13_1, triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2_xnumel, stream=stream0)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1448, in run
+    self.autotune_to_one_config(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1176, in autotune_to_one_config
+    timings = self.benchmark_all_configs(*args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1139, in benchmark_all_configs
+    launcher: self.bench(launcher, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 999, in bench
+    return benchmarker.benchmark(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 206, in benchmark
+    return self.benchmark_gpu(_callable, warmup=warmup, rep=rep, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 379, in benchmark_gpu
+    _callable()
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 953, in kernel_call
+    cloned_args, cloned_kwargs = self.maybe_clone_args(
+                                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1111, in maybe_clone_args
+    prepare_arg(name, arg)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1106, in prepare_arg
+    return clone_preserve_strides(arg)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/utils.py", line 3421, in clone_preserve_strides
+    buffer = torch.as_strided(x, (needed_size,), (1,)).clone()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: accessing tensor output of CUDAGraphs that has been overwritten by a subsequent run. Stack trace: File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+    hidden_states = decoder_layer(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+    hidden_states, _ = self.self_attn(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+    key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+    keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 426, in update
+    self.keys.index_copy_(2, cache_position, key_states). To prevent overwriting, clone the tensor outside of torch.compile() or call torch.compiler.cudagraph_mark_step_begin() before each model invocation.
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] skipping cudagraphs due to mutated inputs (84 instances). Found from : 
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]    File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs: BaseModelOutputWithPast = self.model(
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs = func(self, *args, **kwargs)
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states = decoder_layer(
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     return super().__call__(*args, **kwargs)
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states, _ = self.self_attn(
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 422, in update
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     self.cumulative_length.add_(kv_length)
+W1007 10:14:33.466000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] 
+Traceback (most recent call last):
+  File "/home/yzhao/wattbench/pytorch_server.py", line 340, in _loop
+    self._run_batch(batch)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench/pytorch_server.py", line 390, in _run_batch
+    self.model.generate(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2681, in generate
+    result = decoding_method(
+             ^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2895, in _sample
+    outputs = model_forward(**model_inputs, return_dict=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 905, in wrapper
+    @wraps(func)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1200, in forward
+    return compiled_fn(full_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 580, in runtime_wrapper
+    all_outs = call_func_at_runtime_with_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 138, in call_func_at_runtime_with_args
+    out = normalize_as_list(f(args))
+                            ^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 2298, in __call__
+    return self.compiled_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 783, in wrapper
+    return compiled_fn(runtime_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 1011, in inner_fn
+    outs = compiled_fn(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/output_code.py", line 656, in __call__
+    return self.current_callable(inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 4736, in call
+    (buf662,) = self.partitions[0](partition0_args)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1875, in run
+    return compiled_fn(new_inputs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 436, in deferred_cudagraphify
+    fn, out = cudagraphify(model, inputs, new_static_input_idxs, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 496, in cudagraphify
+    return manager.add_function(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2448, in add_function
+    return fn, fn(inputs)
+               ^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2113, in run
+    out = self._run(new_inputs, function_id)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2195, in _run
+    return self.ids_to_funcs[function_id].model(new_inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 2235, in partition_0
+    triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2.run(arg12_1, buf5, buf4, arg13_1, triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2_xnumel, stream=stream0)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1448, in run
+    self.autotune_to_one_config(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1176, in autotune_to_one_config
+    timings = self.benchmark_all_configs(*args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1139, in benchmark_all_configs
+    launcher: self.bench(launcher, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 999, in bench
+    return benchmarker.benchmark(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 206, in benchmark
+    return self.benchmark_gpu(_callable, warmup=warmup, rep=rep, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 379, in benchmark_gpu
+    _callable()
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 953, in kernel_call
+    cloned_args, cloned_kwargs = self.maybe_clone_args(
+                                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1111, in maybe_clone_args
+    prepare_arg(name, arg)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1106, in prepare_arg
+    return clone_preserve_strides(arg)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/utils.py", line 3421, in clone_preserve_strides
+    buffer = torch.as_strided(x, (needed_size,), (1,)).clone()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: accessing tensor output of CUDAGraphs that has been overwritten by a subsequent run. Stack trace: File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+    hidden_states = decoder_layer(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+    hidden_states, _ = self.self_attn(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+    key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+    keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 426, in update
+    self.keys.index_copy_(2, cache_position, key_states). To prevent overwriting, clone the tensor outside of torch.compile() or call torch.compiler.cudagraph_mark_step_begin() before each model invocation.
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] skipping cudagraphs due to mutated inputs (84 instances). Found from : 
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]    File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs: BaseModelOutputWithPast = self.model(
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs = func(self, *args, **kwargs)
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states = decoder_layer(
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     return super().__call__(*args, **kwargs)
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states, _ = self.self_attn(
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 422, in update
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     self.cumulative_length.add_(kv_length)
+W1007 10:14:33.762000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] 
+Traceback (most recent call last):
+  File "/home/yzhao/wattbench/pytorch_server.py", line 340, in _loop
+    self._run_batch(batch)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench/pytorch_server.py", line 390, in _run_batch
+    self.model.generate(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2681, in generate
+    result = decoding_method(
+             ^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/generation/utils.py", line 2895, in _sample
+    outputs = model_forward(**model_inputs, return_dict=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1024, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 905, in wrapper
+    @wraps(func)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1200, in forward
+    return compiled_fn(full_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 580, in runtime_wrapper
+    all_outs = call_func_at_runtime_with_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 138, in call_func_at_runtime_with_args
+    out = normalize_as_list(f(args))
+                            ^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 2298, in __call__
+    return self.compiled_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 783, in wrapper
+    return compiled_fn(runtime_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 1011, in inner_fn
+    outs = compiled_fn(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/output_code.py", line 656, in __call__
+    return self.current_callable(inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 4736, in call
+    (buf662,) = self.partitions[0](partition0_args)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1875, in run
+    return compiled_fn(new_inputs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 436, in deferred_cudagraphify
+    fn, out = cudagraphify(model, inputs, new_static_input_idxs, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 496, in cudagraphify
+    return manager.add_function(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2448, in add_function
+    return fn, fn(inputs)
+               ^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2113, in run
+    out = self._run(new_inputs, function_id)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/cudagraph_trees.py", line 2195, in _run
+    return self.ids_to_funcs[function_id].model(new_inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/.cache/torchinductor/rw/crwcbrswx55h63tlhx2smoij7h6rvkqqoaphfraoycka2fkj5uij.py", line 2235, in partition_0
+    triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2.run(arg12_1, buf5, buf4, arg13_1, triton_poi_fused__to_copy_add_arange_cat_cos_index_copy_mul_neg_sin_slice_transpose_unsqueeze_view_2_xnumel, stream=stream0)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1448, in run
+    self.autotune_to_one_config(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1176, in autotune_to_one_config
+    timings = self.benchmark_all_configs(*args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1139, in benchmark_all_configs
+    launcher: self.bench(launcher, *args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 999, in bench
+    return benchmarker.benchmark(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 206, in benchmark
+    return self.benchmark_gpu(_callable, warmup=warmup, rep=rep, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 95, in wrapper
+    return fn(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/benchmarking.py", line 379, in benchmark_gpu
+    _callable()
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 953, in kernel_call
+    cloned_args, cloned_kwargs = self.maybe_clone_args(
+                                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1111, in maybe_clone_args
+    prepare_arg(name, arg)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/runtime/triton_heuristics.py", line 1106, in prepare_arg
+    return clone_preserve_strides(arg)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/torch/_inductor/utils.py", line 3421, in clone_preserve_strides
+    buffer = torch.as_strided(x, (needed_size,), (1,)).clone()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error: accessing tensor output of CUDAGraphs that has been overwritten by a subsequent run. Stack trace: File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+    hidden_states = decoder_layer(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+    hidden_states, _ = self.self_attn(
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+    key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+    keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+  File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 426, in update
+    self.keys.index_copy_(2, cache_position, key_states). To prevent overwriting, clone the tensor outside of torch.compile() or call torch.compiler.cudagraph_mark_step_begin() before each model invocation.
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] skipping cudagraphs due to mutated inputs (84 instances). Found from : 
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]    File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 911, in wrapper
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 462, in forward
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs: BaseModelOutputWithPast = self.model(
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     output = func(self, *args, **kwargs)
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     outputs = func(self, *args, **kwargs)
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 399, in forward
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states = decoder_layer(
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/modeling_layers.py", line 110, in __call__
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     return super().__call__(*args, **kwargs)
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 293, in forward
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     hidden_states, _ = self.self_attn(
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/models/qwen2/modeling_qwen2.py", line 225, in forward
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 1304, in update
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     keys, values = self.layers[layer_idx].update(key_states, value_states, *args, **kwargs)
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]   File "/home/yzhao/wattbench-venv/lib/python3.12/site-packages/transformers/cache_utils.py", line 422, in update
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs]     self.cumulative_length.add_(kv_length)
+W1007 10:14:34.292000 26408 torch/_inductor/cudagraph_utils.py:207] [__cudagraphs] 

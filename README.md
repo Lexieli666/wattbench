@@ -49,7 +49,7 @@ J/token as functions of offered load — on hardware people own, reproducibly.*
 | | |
 |---|---|
 | Hardware | 1 × NVIDIA GeForce RTX 4090, 24 GB, in a Windows desktop |
-| Serving | vLLM 0.26.0, and llama.cpp (`6b4344e`) for the stack comparison, under WSL2 (Ubuntu 26.04), driver 595.95. A third stack — HF transformers + plain PyTorch (`model.generate`), BF16 — is harnessed and **not yet run** |
+| Serving | vLLM 0.26.0, and llama.cpp (`6b4344e`) for the stack comparison, under WSL2 (Ubuntu 26.04), driver 595.95; the E4 stack table was re-measured as one session on driver 610.60 (2026-10-07). A third stack — HF transformers + plain PyTorch (`model.generate`), BF16 — is measured in that session |
 | Models | Qwen2.5-Instruct, 1.5B → 32B, BF16 and int4 |
 | Shapes | chat (512 in / 128 out) and RAG (2048 in / 256 out) |
 | Arrivals | Poisson, fixed seed, 0.5 → 32 req/s |
@@ -283,15 +283,15 @@ int4*, and a gap includes whatever the formats themselves cost.
 
 | concurrency | vLLM out tok/s | llama.cpp out tok/s | vLLM J/tok | llama.cpp J/tok |
 |---|---|---|---|---|
-| 1 | 148.9 | 145.6 (−2.2%) | 2.08 | 2.38 (+14%) |
-| 8 | 820.2 | 482.8 (−41%) | 0.419 | 0.791 (+89%) |
-| 32 | **1542** | 755.6 (−51%) | **0.262** | 0.339 (+29%) |
+| 1 | 158.1 | 146.5 (−7.3%) | 2.05 | 2.38 (+16%) |
+| 8 | 880.4 | 489.5 (−44%) | 0.414 | 0.787 (+90%) |
+| 32 | **1664** | 761.1 (−54%) | **0.259** | 0.338 (+31%) |
 
 ![Two stacks at their native int4](results/plots/e4_stacks_vs_concurrency.png)
 
-**At one request in flight the two are indistinguishable** — 2.2% apart, inside
-the run-to-run bar. **Under load vLLM's continuous batching pulls away**: +70%
-throughput at 8 concurrent, +104% at 32, at 47% and 23% less energy per token.
+**At one request in flight the two are close** — vLLM 7.9% ahead, outside
+the run-to-run bar. **Under load vLLM's continuous batching pulls away**: +80%
+throughput at 8 concurrent, +119% at 32, at 47% and 23% less energy per token.
 That is the shape the project plan predicted. It is not the shape the first
 measurement produced, and the reason is the most useful thing E4 found.
 
@@ -313,7 +313,7 @@ of the format-plus-stack pair, not of the batching implementation. As a check on
 the guard rather than a second result, the same AWQ checkpoint scored 92.0% at
 n=50 in E2, on a different subset draw in a different session.
 
-**A third arm — HF transformers + plain PyTorch — is harnessed and not run.**
+**A third arm — HF transformers + plain PyTorch — is harnessed and measured.**
 Every serving framework is implicitly compared against "just call
 `model.generate()`", and almost nobody measures that baseline under load.
 `pytorch_server.py` puts it behind the same OpenAI-compatible endpoint, under
@@ -322,12 +322,11 @@ two arms above, with static batching left as it is because static batching is
 the property under test. It serves BF16, since plain transformers has no int4
 path that is still "just PyTorch", so the format caveat on this section widens
 to three formats; the like-for-like format control is the vLLM BF16 server of
-§1 and §4. The same three concurrencies, a `torch.compile` control at 8, and
-the GSM8K guard at n=200 are one command (`./run_e4_pytorch.sh`), and the
-tables in [`results/tables/e4_stacks.md`](results/tables/e4_stacks.md) grow a
-column for it, plus a memory and GPU-time section, when the raw data lands.
-Until then every PyTorch cell reads **not run**. Protocol:
-[`METHODOLOGY.md`](METHODOLOGY.md) §7c.
+§1 and §4. The same three concurrencies, a `torch.compile` control at 8 (not
+run in this session, see [`METHODOLOGY.md`](METHODOLOGY.md) §7c), and the GSM8K
+guard at n=200 are one command (`./run_e4_pytorch.sh`), and the tables in
+[`results/tables/e4_stacks.md`](results/tables/e4_stacks.md) carry it, plus a
+memory and GPU-time section. Protocol: [`METHODOLOGY.md`](METHODOLOGY.md) §7c.
 
 **Peak GPU memory is now a column for every run**, derived at read time from
 the power logs that have carried it since the first session, in
@@ -351,8 +350,8 @@ This is not a clock artefact in the client: mean GPU power moved 185 → 300 W a
 concurrency 1 for identical work, and integrated energy for the same 200
 requests fell **78.3 → 53.3 kJ**. With reuse, the card was genuinely idle
 waiting. Running the first pass as-is would have published "llama.cpp is 2.35×
-faster than vLLM at concurrency 1" — the exact opposite of the truth, which is a
-2.2% tie.
+faster than vLLM at concurrency 1" — the exact opposite of the truth, which was a
+2.2% tie in the August session.
 
 Both arms now send `Connection: close`, set identically rather than only where
 it hurt. Two single-variable controls close the loose ends: `max_num_seqs`
@@ -417,7 +416,7 @@ host.**
   for a frontier API model. Frontier prices appear in the comparison to show the
   ceiling of the market, marked as not weight-class comparable. The only
   capability evidence produced here is a GSM8K exact-match guard — 50 items for
-  the E2 quantization arms, 200 for the two E4 stack arms — which licenses no
+  the E2 quantization arms, 200 for the three E4 stack arms — which licenses no
   claim beyond that task. At n=50 the 95% interval is roughly ±14 points and at
   n=200 roughly ±7, so only gaps wider than that mean anything. The two sample
   sizes are different subset draws and are never pooled.
@@ -431,7 +430,7 @@ host.**
   electricity. It does not price your time, downtime, or the absence of a
   second machine.
 - **No identical-weights stack comparison.** E4's arms serve different weight
-  formats — two native int4s, and BF16 for the PyTorch arm once it is run —
+  formats — two native int4s, and BF16 for the PyTorch arm —
   because that is what each stack natively serves. It answers "which stack
   should I run", not "which batching implementation is faster".
 - **One client, and the client turned out to matter.** Every number here is
