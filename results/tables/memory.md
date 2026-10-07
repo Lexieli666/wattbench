@@ -101,14 +101,17 @@
 
 ### E4
 
-| point                | stack     | model                    | precision   | max ctx | nvidia-smi peak GiB | torch peak alloc GiB | source  |
-|----------------------|-----------|--------------------------|-------------|---------|---------------------|----------------------|---------|
-| e4_llamacpp_gguf_c1  | llama.cpp | Qwen2.5-7B-Instruct-GGUF | GGUF Q4_K_M | 4096    | 6.32                | not run              | derived |
-| e4_llamacpp_gguf_c32 | llama.cpp | Qwen2.5-7B-Instruct-GGUF | GGUF Q4_K_M | 4096    | 13.11               | not run              | derived |
-| e4_llamacpp_gguf_c8  | llama.cpp | Qwen2.5-7B-Instruct-GGUF | GGUF Q4_K_M | 4096    | 7.86                | not run              | derived |
-| e4_vllm_awq_c1       | vLLM      | Qwen2.5-7B-Instruct-AWQ  | awq         | 4096    | 23.40               | not run              | derived |
-| e4_vllm_awq_c32      | vLLM      | Qwen2.5-7B-Instruct-AWQ  | awq         | 4096    | 23.38               | not run              | derived |
-| e4_vllm_awq_c8       | vLLM      | Qwen2.5-7B-Instruct-AWQ  | awq         | 4096    | 23.38               | not run              | derived |
+| point                | stack        | model                    | precision   | max ctx | nvidia-smi peak GiB | torch peak alloc GiB | source   |
+|----------------------|--------------|--------------------------|-------------|---------|---------------------|----------------------|----------|
+| e4_llamacpp_gguf_c1  | llama.cpp    | Qwen2.5-7B-Instruct-GGUF | GGUF Q4_K_M | 4096    | 6.16                | not run              | recorded |
+| e4_llamacpp_gguf_c32 | llama.cpp    | Qwen2.5-7B-Instruct-GGUF | GGUF Q4_K_M | 4096    | 12.95               | not run              | recorded |
+| e4_llamacpp_gguf_c8  | llama.cpp    | Qwen2.5-7B-Instruct-GGUF | GGUF Q4_K_M | 4096    | 7.69                | not run              | recorded |
+| e4_pytorch_bf16_c1   | HF + PyTorch | Qwen2.5-7B-Instruct      | BF16        | 4096    | 16.22               | 14.33                | recorded |
+| e4_pytorch_bf16_c32  | HF + PyTorch | Qwen2.5-7B-Instruct      | BF16        | 4096    | 19.59               | 17.20                | recorded |
+| e4_pytorch_bf16_c8   | HF + PyTorch | Qwen2.5-7B-Instruct      | BF16        | 4096    | 17.01               | 14.91                | recorded |
+| e4_vllm_awq_c1       | vLLM         | Qwen2.5-7B-Instruct-AWQ  | awq         | 4096    | 23.38               | not run              | recorded |
+| e4_vllm_awq_c32      | vLLM         | Qwen2.5-7B-Instruct-AWQ  | awq         | 4096    | 23.33               | not run              | recorded |
+| e4_vllm_awq_c8       | vLLM         | Qwen2.5-7B-Instruct-AWQ  | awq         | 4096    | 23.38               | not run              | recorded |
 
 ### E4-control
 
@@ -125,4 +128,4 @@
 | smoke_llamacpp_gguf_c4 | llama.cpp | Qwen2.5-7B-Instruct-GGUF | GGUF Q4_K_M | 4096    | 7.12                | not run              | derived |
 | smoke_qwen1_5b_chat_r4 | vLLM      | Qwen2.5-1.5B-Instruct    | bf16        | 4096    | 16.34               | not run              | derived |
 
-58 run(s) — the newest run of every point that served (`--include-superseded` adds the earlier runs of re-run points) — 58 of them with the figure derived at read time from the committed power log; none rewritten.
+61 run(s) — the newest run of every point that served (`--include-superseded` adds the earlier runs of re-run points) — 52 of them with the figure derived at read time from the committed power log; none rewritten.

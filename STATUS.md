@@ -18,7 +18,7 @@ Updated 2026-10-07. Everything below is recoverable from the repo alone.
 | v0.2 R1 | duty-cycle cost curve + sensitivity rows (re-analysis only) |
 | v0.2 R2 | GSM8K guard for both E4 arms at n=200 |
 | v0.2 R3 | FP8 on Ada attempted; it serves, one point recorded |
-| M9 third stack (harness) | `pytorch_server.py`, `configs/_base_7b_pytorch.yaml`, `configs/e4/pytorch_*.yaml`, `run_e4_pytorch.sh`; protocol-tested on CPU, **not yet measured** |
+| M9 third stack (harness) | `pytorch_server.py`, `configs/_base_7b_pytorch.yaml`, `configs/e4/pytorch_*.yaml`, `run_e4_pytorch.sh`; protocol-tested on CPU, measured 2026-10-07 in the E4 session on driver 610.60; its `torch.compile` control not run in this session, see METHODOLOGY §7c |
 | M9 memory + GPU time | `gpu_memory` / `gpu_time` / `profile` sections in every new record; `analyze.py memory` fills the peak-memory column for every existing run from its committed power log |
 
 Regenerate every table and plot from raw data, in this order and with the venv
@@ -61,9 +61,10 @@ fails at the plots, so a partial run looks like a success:
    on this card is 0–7% depending on how load is applied, not the withdrawn
    +21.7%. Full account in `results/tables/e2_r16_anomaly.md`.
 
-3. **M8 / E4 is measured and written up**, 2026-08-15. vLLM and llama.cpp are
-   within 2.2% at concurrency 1; vLLM leads +70% at 8 and +104% at 32, at 47%
-   and 23% less energy per token. Plan §4's expected shape, confirmed — but the
+3. **M8 / E4 is measured and written up**, 2026-08-15. vLLM leads llama.cpp by
+   7.9% at concurrency 1, +80% at 8 and +119% at 32, at 47% and 23% less energy
+   per token (the table as re-measured in one session on driver 610.60,
+   2026-10-07; METHODOLOGY §7b). Plan §4's expected shape, confirmed — but the
    first pass measured the opposite, and why is the more useful finding:
 
    **HTTP connection reuse moved measured throughput by up to 59%.** The two
@@ -71,10 +72,11 @@ fails at the plots, so a partial run looks like a success:
    llama.cpp dropped ~11% of requests (cpp-httplib's 5 s keep-alive timeout,
    left at its default), while vLLM dropped none and instead lost 59% of its
    concurrency-1 throughput. Measured with reuse on, llama.cpp looks 2.35×
-   faster than vLLM at concurrency 1, where the two are within 2.2%. Server-side
-   power confirms it is real, not a client clock: 185 → 300 W on identical work,
-   78.3 → 53.3 kJ for the same 200 requests. Both arms now send
-   `Connection: close`. Full account: `results/tables/e4_transport.md`.
+   faster than vLLM at concurrency 1, where the two were within 2.2% in the
+   August session. Server-side power confirms it is real, not a client clock:
+   185 → 300 W on identical work, 78.3 → 53.3 kJ for the same 200 requests.
+   Both arms now send `Connection: close`. Full account:
+   `results/tables/e4_transport.md`.
 
    E0–E3 were *checked*, not assumed: an E1 point re-run with the transport as
    the only change moved 0.04% on throughput and 1.4% on energy. The pathology
@@ -140,7 +142,7 @@ fails at the plots, so a partial run looks like a success:
    build is recorded: the optional `vllm.third_party.deep_gemm` backend failed
    to import (no `CUDA_HOME`); the CUTLASS path served the whole run.
 
-## Open: M9, the PyTorch arm, is harnessed and unmeasured (2026-10-07)
+## Open: M9, the PyTorch arm, is harnessed and measured (2026-10-07)
 
 What exists: a third serving stack, HF transformers + plain `model.generate`,
 behind the same OpenAI-compatible endpoint, load generator, transport, power

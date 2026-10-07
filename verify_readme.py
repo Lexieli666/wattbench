@@ -140,12 +140,12 @@ def main() -> int:
 
     # --- §6: the stack comparison -----------------------------------------
     print("--- README §6: stacks, guard and transport, against raw ---")
-    for pid, tps, jtok in (("e4_vllm_awq_c1", 148.9, 2.08),
-                           ("e4_llamacpp_gguf_c1", 145.6, 2.38),
-                           ("e4_vllm_awq_c8", 820.2, 0.419),
-                           ("e4_llamacpp_gguf_c8", 482.8, 0.791),
-                           ("e4_vllm_awq_c32", 1542, 0.262),
-                           ("e4_llamacpp_gguf_c32", 755.6, 0.339)):
+    for pid, tps, jtok in (("e4_vllm_awq_c1", 158.1, 2.05),
+                           ("e4_llamacpp_gguf_c1", 146.5, 2.38),
+                           ("e4_vllm_awq_c8", 880.4, 0.414),
+                           ("e4_llamacpp_gguf_c8", 489.5, 0.787),
+                           ("e4_vllm_awq_c32", 1664, 0.259),
+                           ("e4_llamacpp_gguf_c32", 761.1, 0.338)):
         r = rows[pid]
         chk(f"{pid}", str(tps) in s6 and str(jtok) in s6
             and near(r["out_tok_throughput"], tps, 0.002)
@@ -169,19 +169,24 @@ def main() -> int:
         f"raw {guards['awq']['metrics']['exact_match']:.1%} at n={guards['awq']['metrics']['n_items']}")
 
     # The transport claims quote the superseded connection-reuse runs, which are
-    # kept in results/raw/ precisely so this comparison can be recomputed.
+    # kept in results/raw/ precisely so this comparison can be recomputed. Both
+    # sides of each comparison are pinned to the 2026-08-15 session: the stack
+    # table was re-measured on 2026-10-07, and a reuse run from one session
+    # divided by a close run from another would measure drift, not transport.
     def newest(pid: str, when: str) -> dict:
         return max((r for r in every if r["point_id"] == pid and r["file"].startswith(f"{pid}__{when}")),
                    key=lambda r: r["file"])
 
-    reuse_c1, close_c1 = newest("e4_vllm_awq_c1", "20260815T0027"), rows["e4_vllm_awq_c1"]
+    reuse_c1 = newest("e4_vllm_awq_c1", "20260815T0027")
+    close_c1 = newest("e4_vllm_awq_c1", "20260815T010428")
     loss_c1 = 1 - reuse_c1["out_tok_throughput"] / close_c1["out_tok_throughput"]
     chk("vLLM lost 59% at c1 with connection reuse",
         "−59%" in s6 and "148.9 → 61.4" in s6 and near(round(loss_c1 * 100), 59, 0.02),
         f"{reuse_c1['out_tok_throughput']:.1f} -> {close_c1['out_tok_throughput']:.1f} tok/s "
         f"= {loss_c1:.1%}")
 
-    reuse_c32, close_c32 = newest("e4_vllm_awq_c32", "20260815T0040"), rows["e4_vllm_awq_c32"]
+    reuse_c32 = newest("e4_vllm_awq_c32", "20260815T0040")
+    close_c32 = newest("e4_vllm_awq_c32", "20260815T011128")
     loss_c32 = 1 - reuse_c32["out_tok_throughput"] / close_c32["out_tok_throughput"]
     chk("vLLM lost 44% at c32 with connection reuse",
         "−44%" in s6 and "1542 → 862" in s6 and near(round(loss_c32 * 100), 44, 0.02),

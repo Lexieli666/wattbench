@@ -48,20 +48,24 @@
 | e3_3b_awq_chat_r4             | E3             | ok                     | 4       | 3.99    | 510.6     | 58.88       | 0.461   | PASS   | -     |
 | e3_7b_awq_chat_r4             | E3             | ok                     | 4       | 3.98    | 509.8     | 111.3       | 0.65    | PASS   | -     |
 | e3_7b_awq_chat_r4_recheck     | E3-recheck     | ok                     | 4       | 3.98    | 509.8     | 113.1       | 0.65    | PASS   | -     |
-| e4_llamacpp_gguf_c1           | E4             | ok                     | inf     | 1.15    | 145.6     | 69.17       | 2.38    | PASS   | -     |
-| e4_llamacpp_gguf_c32          | E4             | ok                     | inf     | 6.02    | 755.6     | 371.9       | 0.339   | PASS   | -     |
-| e4_llamacpp_gguf_c8           | E4             | ok                     | inf     | 3.84    | 482.8     | 423.4       | 0.791   | PASS   | -     |
+| e4_llamacpp_gguf_c1           | E4             | ok                     | inf     | 1.16    | 146.5     | 121.1       | 2.38    | PASS   | -     |
+| e4_llamacpp_gguf_c32          | E4             | ok                     | inf     | 6.06    | 761.1     | 368.2       | 0.338   | PASS   | -     |
+| e4_llamacpp_gguf_c8           | E4             | ok                     | inf     | 3.9     | 489.5     | 460.4       | 0.787   | PASS   | -     |
 | e4_llamacpp_gguf_c8_noreuse   | E4-control     | ok                     | inf     | 3.83    | 484.6     | 494.6       | 0.747   | PASS   | -     |
-| e4_vllm_awq_c1                | E4             | ok                     | inf     | 1.16    | 148.9     | 59.89       | 2.08    | PASS   | -     |
-| e4_vllm_awq_c32               | E4             | ok                     | inf     | 12.1    | 1542      | 594.5       | 0.262   | PASS   | -     |
+| e4_pytorch_bf16_c1            | E4             | ok                     | inf     | 0.371   | 47.45     | 59.66       | 5.98    | PASS   | -     |
+| e4_pytorch_bf16_c32           | E4             | ok                     | inf     | 4.1     | 524.7     | 4524        | 0.599   | PASS   | -     |
+| e4_pytorch_bf16_c8            | E4             | ok                     | inf     | 1.31    | 167.4     | 3655        | 1.58    | PASS   | -     |
+| e4_vllm_awq_c1                | E4             | ok                     | inf     | 1.23    | 158.1     | 52.5        | 2.05    | PASS   | -     |
+| e4_vllm_awq_c32               | E4             | ok                     | inf     | 13      | 1664      | 546.6       | 0.259   | PASS   | -     |
 | e4_vllm_awq_c32_seqs512       | E4-control     | ok                     | inf     | 12      | 1539      | 598.5       | 0.263   | PASS   | -     |
-| e4_vllm_awq_c8                | E4             | ok                     | inf     | 6.41    | 820.2     | 366.1       | 0.419   | PASS   | -     |
+| e4_vllm_awq_c8                | E4             | ok                     | inf     | 6.88    | 880.4     | 326.9       | 0.414   | PASS   | -     |
 | fp8_7b_chat_r4                | E2-fp8         | ok                     | 4       | 3.97    | 508.1     | 105.5       | 0.59    | PASS   | -     |
 | gsm8k_awq                     | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_awq_n200                | E4-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_bf16                    | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_gguf_q4km_n200          | E4-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | gsm8k_gptq                    | E2-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
+| gsm8k_hf_bf16_n200            | E4-guard       | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | limits_context_14b            | E2-limits      | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |
 | limits_context_32b            | E2-limits      | no_context_served      | not run | not run | not run   | not run     | not run | ?      | -     |
 | limits_context_32b_fine       | E2-limits      | ok                     | not run | not run | not run   | not run     | not run | ?      | -     |

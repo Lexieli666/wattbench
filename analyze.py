@@ -679,9 +679,10 @@ E4_CAVEAT = (
     "(512 in / 128 out), same tokenizer, same load generator, same idle "
     "baseline, same session."
 )
-# The same caveat once the HF + PyTorch arm has rows: a third format, and a
-# third session. The two-arm wording above is kept verbatim until then, so
-# regenerating the tables before the arm is measured changes nothing.
+# The same caveat once the HF + PyTorch arm has rows: a third format. The
+# two-arm wording above is kept verbatim until then, so regenerating the
+# tables before the arm is measured changes nothing. The session sentence is
+# appended by _e4_session_note, from the records rather than from memory.
 E4_CAVEAT_THREE = (
     "**GGUF Q4_K_M, AWQ int4 and BF16 are different weight formats.** This "
     "compares serving stacks each at its own native format, not one set of "
@@ -692,10 +693,30 @@ E4_CAVEAT_THREE = (
     "server of E1/E2 (same weights, different stack). Everything else is held "
     "equal: same model family and size (Qwen2.5-7B-Instruct), same traffic "
     "shape (512 in / 128 out), same tokenizer, same load generator, same "
-    "transport. The vLLM and llama.cpp arms share a session; the PyTorch arm "
-    "was measured later and carries cross-session drift (~2% on tail latency) "
-    "on top of the within-session bar -- its record says which session it was."
+    "transport."
 )
+
+
+def _e4_session_note(results: list[dict]) -> str:
+    """Which session(s) the main-table rows come from, read off each record's
+    idle baseline and driver, because the answer changed once (2026-10-07).
+    `results` is exactly the raw records behind the main table's rows."""
+    main = [r for r in results if r.get("status") == "ok"]
+    baselines = {(((r.get("energy") or {}).get("idle_baseline_source") or {}).get("file"))
+                 for r in main}
+    drivers = sorted({str(((r.get("provenance") or {}).get("gpu") or {}).get("driver_version"))
+                      for r in main})
+    if len(baselines) == 1 and None not in baselines and len(drivers) == 1:
+        return (f" All three arms were measured in one session, against one idle "
+                f"baseline (`{next(iter(baselines))}`), on driver {drivers[0]}: "
+                "the driver change since the first E4 session moved the stacks "
+                "by different amounts, so arms from different sessions are not "
+                "comparable (METHODOLOGY §7b).")
+    return (" The arms were not all measured in one session (idle baselines "
+            + ", ".join(f"`{b}`" for b in sorted(str(b) for b in baselines))
+            + f"; driver {', '.join(drivers)}), so a gap between them carries "
+            "cross-session drift on top of the within-session bar -- each "
+            "record says which session it was.")
 
 
 def stack_of(row: dict) -> str:
@@ -1044,6 +1065,7 @@ def cmd_stacks(args: argparse.Namespace) -> str:
     # stack; it gets its own rows below rather than a column here.
     main_rows = [r for r in rows if not r["compiled"]]
     body = []
+    shown: list[str] = []
     for c in concs:
         for st in stacks:
             match = [r for r in main_rows
@@ -1051,6 +1073,7 @@ def cmd_stacks(args: argparse.Namespace) -> str:
             if not match:
                 continue
             r = match[0]
+            shown.append(r["file"])
             base = next((x for x in main_rows if x["max_concurrency"] == c
                          and stack_of(x) == "vllm" and is_served(x)), None)
 
@@ -1074,6 +1097,9 @@ def cmd_stacks(args: argparse.Namespace) -> str:
                 fmt(r["mean_power_w"], ".4g"),
                 fmt(r["j_per_out_tok"], ".3g"), rel("j_per_out_tok"),
             ])
+    if three:
+        out[2] = E4_CAVEAT_THREE + _e4_session_note(
+            [r for r in results if r["_path"] in shown])
     if body:
         out.append(md_table(
             ["concurrency", "stack", "format", "status", "out tok/s", "vs vLLM",
