@@ -2221,21 +2221,16 @@ def plot_stacks(rows: list[dict], path: str) -> bool:
     fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.4))
     # Slots assigned by entity, never re-ordered when a series is absent.
     colour = {"vllm": C["blue"], "llamacpp": C["orange"], "pytorch": C["aqua"]}
-    # Endpoint labels are nudged apart per series: at high concurrency the
-    # energy curves converge to within a few hundredths of a joule and the
-    # labels would otherwise print on top of each other.
-    nudge = {"vllm": -9, "llamacpp": 9, "pytorch": 0}
+    ends: dict[int, list] = {0: [], 1: []}
     for st, pts in series:
         x = [int(p["max_concurrency"]) for p in pts]
         label = f"{STACK_LABEL[st]} ({STACK_FORMAT[st]})"
-        for ax, field, fmt_end in ((axes[0], "out_tok_throughput", lambda v: f"{v:,.0f}"),
-                                   (axes[1], "j_per_out_tok", lambda v: f"{v:.3g} J")):
+        for i, field, fmt_end in ((0, "out_tok_throughput", lambda v: f"{v:,.0f}"),
+                                  (1, "j_per_out_tok", lambda v: f"{v:.3g} J")):
             y = [p[field] for p in pts]
-            ax.plot(x, y, marker="o", color=colour[st], label=label,
-                    markeredgecolor=SURFACE, markeredgewidth=1.5)
-            ax.annotate(fmt_end(y[-1]), (x[-1], y[-1]),
-                        textcoords="offset points", xytext=(9, nudge[st]),
-                        va="center", fontsize=9, color=colour[st])
+            axes[i].plot(x, y, marker="o", color=colour[st], label=label,
+                         markeredgecolor=SURFACE, markeredgewidth=1.5)
+            ends[i].append((x[-1], y[-1], fmt_end(y[-1]), colour[st]))
 
     ticks = sorted({int(p["max_concurrency"]) for _, pts in series for p in pts})
     for ax in axes:
@@ -2271,10 +2266,37 @@ def plot_stacks(rows: list[dict], path: str) -> bool:
     fig.text(0.01, 0.005, foot, ha="left", va="bottom", fontsize=7.5, color=INK_MUTED)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fig.tight_layout(rect=(0, 0.045, 1, 0.93))
+    # Endpoint labels go on after the layout is final, so their spacing can be
+    # computed where they will actually be drawn.
+    for i, ax in enumerate(axes):
+        _place_end_labels(fig, ax, ends[i])
     fig.savefig(path)
     plt.close(fig)
     print(f"[analyze] wrote {os.path.relpath(path, REPO)}")
     return True
+
+
+def _place_end_labels(fig, ax, ends: list, gap_pt: float = 11.0) -> None:
+    """Label each series' last point, keeping the labels at least `gap_pt`
+    apart vertically.
+
+    The energy curves converge at high concurrency: at c32 three stacks end
+    within ~0.35 J of each other, a few points apart on the page. Fixed
+    per-series offsets only kept two labels apart, and a third printed on top
+    of them. Here the labels are sorted by height and each one is pushed up
+    just far enough to clear the one below it, measured in points after the
+    layout is final. A label whose curve stands apart stays level with its
+    point.
+    """
+    ax.get_xlim(), ax.get_ylim()            # settle autoscaling before transforming
+    to_pt = 72.0 / fig.dpi
+    placed: list[float] = []
+    for x, y, text, colour in sorted(ends, key=lambda e: e[1]):
+        y_pt = ax.transData.transform((x, y))[1] * to_pt
+        at = y_pt if not placed else max(y_pt, placed[-1] + gap_pt)
+        placed.append(at)
+        ax.annotate(text, (x, y), textcoords="offset points", xytext=(9, at - y_pt),
+                    va="center", fontsize=9, color=colour)
 
 
 def cmd_plots(args: argparse.Namespace) -> str:
