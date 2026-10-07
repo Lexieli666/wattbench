@@ -40,7 +40,7 @@ server:                         # identity of the served endpoint
   max_batch_size: 32            # rows per static batch; the analogue of max_num_seqs
   batch_wait_ms: 0              # hold a forming batch for late arrivals; 0 = none
   attn_implementation: sdpa     # sdpa | eager | flash_attention_2 | null (checkpoint default)
-  compile: false                # torch.compile(forward, mode=compile_mode) + static KV cache
+  compile: false                # static KV cache + generate()'s decode step compiled (mode=compile_mode)
   compile_mode: reduce-overhead
   profile_batch_size: null      # batch for the post-window torch.profiler pass; null => max_concurrency, else 1
   profile_input_len: null       # null => load.input_len

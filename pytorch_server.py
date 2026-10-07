@@ -214,17 +214,23 @@ class Engine:
 
         self.compiled = False
         if args.compile:
-            # transformers' documented recipe: a static KV cache so shapes are
-            # fixed per (batch, length), and the forward compiled with CUDA
-            # graphs. Every new (batch size, cache length) pair recompiles,
-            # which the warmup pass absorbs for a fixed-concurrency point and
-            # does not for a Poisson one -- so compiled points in this project
-            # are fixed-concurrency by convention (see configs/README.md).
+            # A static KV cache so shapes are fixed per (batch, length), and
+            # generate() compiling its own decode step with CUDA graphs, via
+            # its compile_config. Only the decode step: wrapping model.forward
+            # also compiled generate()'s prefill, which is where transformers
+            # 5.x lazily allocates the static cache -- inside the graph, so
+            # the cache lived in the CUDA-graph pool and the next replay
+            # overwrote it (2026-10-07). Every new (batch size, cache length)
+            # pair recompiles, which the warmup pass absorbs for a
+            # fixed-concurrency point and does not for a Poisson one -- so
+            # compiled points in this project are fixed-concurrency by
+            # convention (see configs/README.md).
             import torch._dynamo as _dynamo
+            from transformers import CompileConfig
             _dynamo.config.cache_size_limit = max(64, _dynamo.config.cache_size_limit)
             self.model.generation_config.cache_implementation = "static"
-            self.model.forward = torch.compile(
-                self.model.forward, mode=args.compile_mode, fullgraph=False)
+            self.model.generation_config.compile_config = CompileConfig(
+                mode=args.compile_mode, fullgraph=False)
             self.compiled = True
 
         # Served name: what the client puts in "model". vLLM serves under the
@@ -916,7 +922,7 @@ def main() -> int:
     ap.add_argument("--attn-implementation", default="sdpa",
                     help="sdpa | eager | flash_attention_2 | '' for the checkpoint default")
     ap.add_argument("--compile", action="store_true",
-                    help="torch.compile the forward with a static KV cache")
+                    help="static KV cache, and generate() compiles its decode step")
     ap.add_argument("--compile-mode", default="reduce-overhead")
     args = ap.parse_args()
     if args.attn_implementation == "":

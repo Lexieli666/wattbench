@@ -844,10 +844,12 @@ carries its session either way.
   the rest of E4; a Poisson point on this arm is possible and the configs
   support it, but with `torch.compile` on it is not (below).
 
-**`torch.compile` is a labelled control, not the arm.** The documented recipe
-— static KV cache plus `torch.compile(model.forward, mode="reduce-overhead")`
-— recompiles for every new (batch size, cache length) pair. At a fixed
-concurrency with identical request shapes the warmup absorbs that; under
+**`torch.compile` is a labelled control, not the arm.** The recipe — a static
+KV cache, with `generate()` compiling only its decode step through
+`generation_config.compile_config` (`mode="reduce-overhead"`) and running the
+prefill eagerly, because the prefill is where transformers allocates the
+static cache — recompiles for every new (batch size, cache length) pair. At a
+fixed concurrency with identical request shapes the warmup absorbs that; under
 Poisson arrivals the server would recompile its way through the measurement.
 So `e4_pytorch_bf16_c8_compile` is run at fixed concurrency only, with a
 warmup sized for the compile, and is reported as a control row under the
