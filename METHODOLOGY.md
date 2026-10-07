@@ -392,6 +392,57 @@ discarded** — a thermally limited run is a fact about this hardware.
 
 ---
 
+## 3b. GPU memory and GPU time — two instruments each, named for what they are
+
+Two more quantities are recorded per run from 2026-10, and both come in
+pairs that do not measure the same thing. They are kept apart with their names
+attached rather than merged into one "VRAM" or one "GPU time" column.
+
+**Peak memory.**
+
+| instrument | what it is | who has it |
+|---|---|---|
+| `nvidia-smi memory.used`, peak over the window | what the driver has handed the process | every stack, every run — the power poller has sampled it at ~2 Hz since the first session (`mem_used_mib_max` in each `.power.json`) |
+| `torch.cuda.max_memory_allocated` | live tensor bytes at the high-water mark: weights, activations, the KV cache as it actually grew | the PyTorch arm only, scraped from its own `/metrics` |
+
+The first reads **~23 GiB for every vLLM point regardless of load**, because
+vLLM pre-allocates `gpu_memory_utilization` × the card at startup and fills its
+KV cache inside that. It says what the server *reserved*, not what it *used*;
+the used figure for vLLM is `KV utilisation` in the experiment tables. For
+llama.cpp it is weights plus the fixed per-slot KV budget, so it moves with
+`--parallel`. The second is the number the first cannot give for a
+pre-allocating server, and it exists only where the server is a PyTorch
+process this harness can ask. `max_memory_reserved` — the allocator's pool — is
+recorded beside it as the closer analogue of the nvidia-smi figure.
+
+Because the nvidia-smi figure was in every power log all along, **the memory
+column is filled for every existing run at read time**, from the committed
+`.power.json`, without rewriting a raw file (`results/raw/` is append-only; see
+§5). `harness.py memory --raw <file>` prints the derived section for one
+record; `analyze.py memory` tabulates all of them into
+`results/tables/memory.md`, marking which were derived and which recorded.
+
+**GPU time per token.**
+
+| instrument | what it is | overhead |
+|---|---|---|
+| CUDA-event elapsed time around every `generate()` call, delta over the window, ÷ output tokens (`gpu_time.gpu_ms_per_output_token`) | the GPU cost of a token as the stack actually pays it: kernels **plus** the gaps the HF decode loop leaves between them | two `cudaEventRecord` per batch — negligible, inside the window |
+| self CUDA kernel time from a `torch.profiler` pass over one synthetic batch of the point's shape, ÷ output tokens (`profile.cuda_kernel_ms_per_output_token`) | kernel-only time; the per-kernel top 25 and a coarse grouping (matmul / attention / norm / elementwise / copy) are kept | large — which is why the pass runs **after** the window has closed and the pollers have stopped, so it touches no measured number |
+
+The difference between the two is the HF decode loop's per-token overhead,
+which is the mechanism behind whatever gap the stack table shows at
+concurrency 1. The profiler pass is two profiled runs — a prefill-only forward
+and a full `generate()` — and their difference is the decode share; it is
+profiled at the point's concurrency as the batch size (`b=` in the table), on
+random token ids with EOS disabled so every row decodes exactly `output_len`
+tokens. Neither instrument exists for vLLM or llama.cpp: the first is a counter
+only `pytorch_server.py` exports, the second needs the profiler inside the
+server. Both read `not run` there rather than being estimated. The energy
+measurement (§3) is unaffected by either: the profiler runs outside the window,
+and the CUDA events cost nothing the poller can see.
+
+---
+
 ## 4. Goodput, and why it is computed here rather than taken
 
 Throughput counts requests the server finished. **Goodput counts requests it
@@ -487,7 +538,11 @@ an OOM at concurrency 64 is a data point about the card, not garbage. The three
 M1 smoke runs are all present, including the first one with its sanity FAIL.
 
 Each point commits four files: the assembled result JSON, the raw power CSV, the
-integrated power JSON, and the tail of the server log.
+integrated power JSON, and the tail of the server log. A PyTorch-arm point
+commits a fifth, the `.profile.json` from the post-window profiler pass (§3b),
+and its record carries `gpu_memory`, `gpu_time` and `profile` sections; records
+written before 2026-10 have none of the three, and analysis derives the
+memory peak for them from the committed power JSON rather than rewriting them.
 
 **Two arrays are dropped before commit**, and the drop is recorded inside the
 artifact itself rather than only in this document:
@@ -731,18 +786,95 @@ another session; the two agree to within −7.8 to +10.3 points.
 
 ---
 
+## 7c. The third stack: HF transformers + plain PyTorch
+
+Every serving framework is implicitly compared against "just call
+`model.generate()`", and almost nobody measures that baseline under load. The
+third arm does. `pytorch_server.py` is `AutoModelForCausalLM.from_pretrained`
+and `model.generate` behind the same OpenAI-compatible endpoint the other two
+arms are measured through: no paged KV cache, no continuous batching, no
+kernels beyond what `attn_implementation=sdpa` selects inside transformers.
+
+**Why it is an HTTP server and not a script.** §7b's transport finding is that
+the client is part of the instrument — a connection-reuse setting moved
+measured throughput by 59%. A third arm driven by a different client, or by
+in-process calls with no client at all, would not be comparable with the first
+two. So this arm is driven by the same `vllm bench serve --backend openai`,
+over the same `Connection: close` transport, under the same power poller, the
+same `/metrics` scrape and the same window definition. Nothing from vLLM is
+imported by the server; the dependency is torch and transformers, on the same
+venv so the torch version recorded for both arms is one number.
+
+**Static batching is the property under test, not a limitation to tune away.**
+A request that arrives while a batch is decoding waits for the next batch, and
+the batch runs until its longest row finishes. That queue is exported on
+`/metrics` as `num_requests_waiting` — the same column vLLM's queue fills — and
+the wait is inside the request's TTFT, where the load generator sees it. The
+batch ceiling (`max_batch_size`, the analogue of `max_num_seqs`) is set to
+cover the offered concurrency exactly as llama.cpp's `--parallel` is; the
+batching delay is zero because the other stacks are not given one either.
+Streaming comes from a `StoppingCriteria` that hands each new token to its
+request as `generate()` samples it, so TTFT and ITL are measured at token
+granularity without rewriting the decode loop — rewriting it would stop this
+being `model.generate`, which is the thing being measured.
+
+**The format caveat widens.** Plain transformers has no int4 path that is
+still "just PyTorch" (the quantised loaders pull in their own kernel
+libraries), so this arm serves **BF16** where the other two serve their native
+int4. §7b's sentence therefore becomes: *GGUF Q4_K_M, AWQ int4 and BF16 are
+different weight formats; this compares stacks at their native format.* The
+like-for-like control for the format is the vLLM BF16 reference server of E1
+and E2 — same weights, different stack — and the stack table says so rather
+than leaving a reader to infer it.
+
+**Session.** The vLLM and llama.cpp arms were measured back to back on
+2026-08-15. A PyTorch arm measured in a later session carries cross-session
+drift (§2: ~2% on tail latency) on top of the within-session bar, which is
+why `run_e4_pytorch.sh` asks for a fresh idle baseline and recommends
+re-running one vLLM point in the same session as a drift check. Each record
+carries its session either way.
+
+**Three columns are empty for this arm, and the absences are findings:**
+
+- **KV utilisation.** A `DynamicCache` has no fixed pool to be a fraction of.
+- **Preemptions.** A static batch is never evicted; a row that finishes early
+  keeps its slot until the batch ends (and keeps being computed — that waste is
+  part of what the arm measures).
+- **Goodput at an offered rate.** The three points are fixed-concurrency, like
+  the rest of E4; a Poisson point on this arm is possible and the configs
+  support it, but with `torch.compile` on it is not (below).
+
+**`torch.compile` is a labelled control, not the arm.** The documented recipe
+— static KV cache plus `torch.compile(model.forward, mode="reduce-overhead")`
+— recompiles for every new (batch size, cache length) pair. At a fixed
+concurrency with identical request shapes the warmup absorbs that; under
+Poisson arrivals the server would recompile its way through the measurement.
+So `e4_pytorch_bf16_c8_compile` is run at fixed concurrency only, with a
+warmup sized for the compile, and is reported as a control row under the
+PyTorch arm rather than as a fourth stack or in the guard.
+
+**Quality guard.** The arm goes through `gsm8k_guard.py` at n=200, same
+subset draw as the other two E4 arms, same greedy decoding, same transport,
+against the uncompiled server. Its label is `hf_bf16_n200`; the table adds a
+third Newcombe interval against vLLM and does not pool anything.
+
+---
+
+---
+
 ## 8. What this project does not claim
 
 - **No capability equivalence.** A locally served Qwen2.5-7B is not a substitute
   for a frontier API model. Frontier price rows appear to show the ceiling of
   the market, not an available trade, and are marked as not weight-class
   comparable. The only capability evidence produced here is the GSM8K
-  exact-match guard — n=50 for the E2 quantization arms, n=200 for the two E4
+  exact-match guard — n=50 for the E2 quantization arms, n=200 for the E4
   stack arms — and it licenses no claim beyond that task.
 - **No datacenter comparison.** Single consumer card, cited references only.
-- **No identical-weights stack comparison.** E4's two arms serve different int4
-  formats because that is what each stack natively serves (§7b). It answers
-  "which stack should I run", not "which batching algorithm is faster".
+- **No identical-weights stack comparison.** E4's arms serve different weight
+  formats — two native int4s and, for the HF + PyTorch arm, BF16 — because that
+  is what each stack natively serves (§7b, §7c). It answers "which stack should
+  I run", not "which batching algorithm is faster".
 - **No measured API latency.** Without keys, no hosted endpoint was timed. Every
   measured latency in this repo is self-hosted, and no measured-vs-reported
   latency comparison is made anywhere.

@@ -49,12 +49,13 @@ J/token as functions of offered load — on hardware people own, reproducibly.*
 | | |
 |---|---|
 | Hardware | 1 × NVIDIA GeForce RTX 4090, 24 GB, in a Windows desktop |
-| Serving | vLLM 0.26.0, and llama.cpp (`6b4344e`) for the stack comparison, under WSL2 (Ubuntu 26.04), driver 595.95 |
+| Serving | vLLM 0.26.0, and llama.cpp (`6b4344e`) for the stack comparison, under WSL2 (Ubuntu 26.04), driver 595.95. A third stack — HF transformers + plain PyTorch (`model.generate`), BF16 — is harnessed and **not yet run** |
 | Models | Qwen2.5-Instruct, 1.5B → 32B, BF16 and int4 |
 | Shapes | chat (512 in / 128 out) and RAG (2048 in / 256 out) |
 | Arrivals | Poisson, fixed seed, 0.5 → 32 req/s |
 | SLO | TTFT ≤ 1 s **and** end-to-end ≤ 10 s |
 | Energy | GPU-rail draw polled at ~2 Hz, integrated trapezoidally to joules |
+| Memory | `nvidia-smi memory.used` peak over the window, every run; `torch.cuda.max_memory_allocated` for the PyTorch stack |
 
 Full protocol and its limits: [`METHODOLOGY.md`](METHODOLOGY.md).
 Reproducing it on Windows: [`SETUP-WSL2.md`](SETUP-WSL2.md).
@@ -312,6 +313,28 @@ of the format-plus-stack pair, not of the batching implementation. As a check on
 the guard rather than a second result, the same AWQ checkpoint scored 92.0% at
 n=50 in E2, on a different subset draw in a different session.
 
+**A third arm — HF transformers + plain PyTorch — is harnessed and not run.**
+Every serving framework is implicitly compared against "just call
+`model.generate()`", and almost nobody measures that baseline under load.
+`pytorch_server.py` puts it behind the same OpenAI-compatible endpoint, under
+the same load generator, transport, power poller and `/metrics` scrape as the
+two arms above, with static batching left as it is because static batching is
+the property under test. It serves BF16, since plain transformers has no int4
+path that is still "just PyTorch", so the format caveat on this section widens
+to three formats; the like-for-like format control is the vLLM BF16 server of
+§1 and §4. The same three concurrencies, a `torch.compile` control at 8, and
+the GSM8K guard at n=200 are one command (`./run_e4_pytorch.sh`), and the
+tables in [`results/tables/e4_stacks.md`](results/tables/e4_stacks.md) grow a
+column for it, plus a memory and GPU-time section, when the raw data lands.
+Until then every PyTorch cell reads **not run**. Protocol:
+[`METHODOLOGY.md`](METHODOLOGY.md) §7c.
+
+**Peak GPU memory is now a column for every run**, derived at read time from
+the power logs that have carried it since the first session, in
+[`results/tables/memory.md`](results/tables/memory.md). For vLLM it is the
+pool the server *reserved* (`gpu_memory_utilization`), not what it used —
+`METHODOLOGY.md` §3b says why the two instruments are kept apart.
+
 **The HTTP transport dominated the first pass, and it is worth its own section.**
 The load generator reuses pooled connections by default. llama.cpp leaves
 cpp-httplib's 5-second keep-alive timeout in place, so the server closes
@@ -364,16 +387,20 @@ VIRTUAL_ENV=~/wattbench-venv uv pip install vllm pyyaml matplotlib
 ./baseline.sh E1-chat                 # fresh idle-power baseline, GPU quiet
 ./sweep.sh --series E1-chat configs/e1/chat/*.yaml
 ./run_e4.sh                           # stack comparison; needs llama.cpp built
+./run_e4_pytorch.sh                   # third arm: HF transformers + PyTorch, + its guard
 # The other scripts resolve the venv themselves; this one runs on whatever
 # python3 is on PATH, and the system one has no matplotlib.
 ~/wattbench-venv/bin/python ./validate_energy.py  # M3 gate, must pass first
 ~/wattbench-venv/bin/python ./analyze.py all      # tables + plots into results/
+~/wattbench-venv/bin/python ./analyze.py memory   # peak GPU memory, every run
 ~/wattbench-venv/bin/python ./verify_readme.py    # every number here traces to raw
 ```
 
-`run.sh` takes one config and produces one raw result; it reuses a running vLLM
+`run.sh` takes one config and produces one raw result; it reuses a running
 server across points that share serving flags, and skips points that already
-have a result, so an interrupted sweep resumes rather than restarts.
+have a result, so an interrupted sweep resumes rather than restarts. The stack
+is a field in the config — `vllm`, `llamacpp` or `pytorch` — and everything
+from the power poller onward is the same code for all three.
 
 Two environment variables are set for every run because vLLM 0.26 will not
 otherwise start under WSL2 — `VLLM_USE_V2_MODEL_RUNNER=0` and
@@ -403,9 +430,10 @@ host.**
 - **One card, no failover, no ops budget.** The cost model prices silicon and
   electricity. It does not price your time, downtime, or the absence of a
   second machine.
-- **No identical-weights stack comparison.** E4's arms serve different int4
-  formats because that is what each stack natively serves. It answers "which
-  stack should I run", not "which batching implementation is faster".
+- **No identical-weights stack comparison.** E4's arms serve different weight
+  formats — two native int4s, and BF16 for the PyTorch arm once it is run —
+  because that is what each stack natively serves. It answers "which stack
+  should I run", not "which batching implementation is faster".
 - **One client, and the client turned out to matter.** Every number here is
   measured through `vllm bench serve`. The transport finding above shows a
   client-side setting moving measured throughput by up to 59%, so these are
@@ -421,13 +449,15 @@ configs/        one YAML per experiment point
 run.sh          config in -> one raw result out; resumable
 sweep.sh        run a list of points unattended, baseline first
 baseline.sh     measure the idle-power baseline for a series
-power_log.py    telemetry polling and joule integration
+power_log.py    telemetry polling and joule integration (incl. memory.used)
 harness.py      config parsing, provenance, result assembly, sanity checks
 validate_energy.py  M3 gate: energy numbers are checked before they are used
 verify_readme.py    checks every number quoted in this file against raw data
 gsm8k_guard.py  quality guard: n=50 for the E2 arms, n=200 for the E4 stacks
 probe_limits.sh longest servable context per checkpoint
 run_e4.sh       the stack comparison, both arms plus its controls
+pytorch_server.py  the third stack: HF transformers + model.generate, OpenAI-compatible
+run_e4_pytorch.sh  the PyTorch arm at c1/8/32, a torch.compile control, and its guard
 analyze.py      raw -> tables and plots
 pricing.yaml    dated external data, all reported-not-measured
 results/raw/    committed raw output, append-only

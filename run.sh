@@ -6,10 +6,16 @@
 #   ./run.sh --stop-server configs/e1/chat_r32.yaml
 #
 # Resumable: a point whose raw result already exists is skipped unless --force,
-# so an interrupted sweep can simply be relaunched. The vLLM server is kept
-# alive between points that share a server fingerprint (model + serving flags),
-# because reloading weights per point would cost more wall-clock than the
-# measurements themselves.
+# so an interrupted sweep can simply be relaunched. The server is kept alive
+# between points that share a server fingerprint (stack + model + serving
+# flags), because reloading weights per point would cost more wall-clock than
+# the measurements themselves.
+#
+# Three stacks share this driver, selected by `server.stack` in the config:
+# vllm (default), llamacpp (E4), and pytorch -- HF transformers + model.generate
+# behind pytorch_server.py. Everything from the power poller onward is the same
+# code for all three; only start_server and the quiescence probe know which one
+# is running.
 #
 # What happens per point:
 #   1. reuse or start the server, wait for /health
@@ -29,6 +35,10 @@ VLLM="$VENV/bin/vllm"
 # recorded in every llama.cpp run's provenance.
 LLAMACPP_BIN="${WATTBENCH_LLAMACPP_BIN:-$HOME/src/llama.cpp/build/bin/llama-server}"
 LLAMACPP_SRC="${WATTBENCH_LLAMACPP_SRC:-$HOME/src/llama.cpp}"
+# The third stack. Runs on the same venv python: it needs only torch and
+# transformers, both of which vLLM already pulls in, and recording the same
+# torch version for both arms is the point.
+PYTORCH_SERVER="$REPO/pytorch_server.py"
 RAW="$REPO/results/raw"
 STATE_DIR="$REPO/results/.state"
 TMP="${WATTBENCH_TMP:-/tmp/wattbench}"
@@ -91,6 +101,10 @@ if [[ "${WB_STACK:-vllm}" == "llamacpp" ]]; then
     echo "FATAL: no llama-server at $LLAMACPP_BIN (set WATTBENCH_LLAMACPP_BIN)" >&2
     exit 1; }
   export WB_LLAMACPP_BIN="$LLAMACPP_BIN" WB_LLAMACPP_SRC="$LLAMACPP_SRC"
+elif [[ "${WB_STACK:-vllm}" == "pytorch" ]]; then
+  "$PY" -c "import torch, transformers" 2>/dev/null || {
+    echo "FATAL: the pytorch stack needs torch and transformers in $VENV" >&2
+    exit 1; }
 fi
 
 log() { printf '[run %s] %s\n' "$(date +%H:%M:%S)" "$*"; }
@@ -137,6 +151,8 @@ POWER_CSV="${BASE}.power.csv"
 KV_CSV="${BASE}.kv.csv"
 KV_JSON="${BASE}.kv.json"
 POWER_JSON="${BASE}.power.json"
+PROFILE_JSON="${BASE}.profile.json"
+MEMORY_JSON="$TMP/${WB_POINT_ID}.memory.json"
 SERVER_LOG="${BASE}.server.log"
 RESULT_JSON="${BASE}.json"
 PROV_JSON="$TMP/${WB_POINT_ID}.provenance.json"
@@ -167,6 +183,7 @@ stop_server() {
   # also matches any shell whose command line merely mentions it, including
   # this one.
   pkill -f "bin/llama-server" 2>/dev/null || true
+  pkill -f "pytorch_server.py --model" 2>/dev/null || true
   sleep 3
 }
 
@@ -176,6 +193,12 @@ start_server() {
     log "  flags: $WB_SERVER_ARGS"
     : > "$SERVER_LOG_LIVE"
     setsid "$LLAMACPP_BIN" $WB_SERVER_ARGS >>"$SERVER_LOG_LIVE" 2>&1 &
+  elif [[ "${WB_STACK:-vllm}" == "pytorch" ]]; then
+    log "starting pytorch (HF transformers + model.generate): $WB_MODEL"
+    log "  flags: $WB_SERVER_ARGS"
+    : > "$SERVER_LOG_LIVE"
+    # -u: unbuffered, so the server log is complete if the process is killed.
+    setsid "$PY" -u "$PYTORCH_SERVER" $WB_SERVER_ARGS >>"$SERVER_LOG_LIVE" 2>&1 &
   else
     log "starting vLLM: $WB_MODEL"
     log "  flags: $WB_SERVER_ARGS"
@@ -222,6 +245,9 @@ server_quiescent() {
   if [[ "${WB_STACK:-vllm}" == "llamacpp" ]]; then
     running="$(awk '/^llamacpp:requests_processing[{ ]/ {print $2; exit}' <<<"$metrics")"
     waiting="$(awk '/^llamacpp:requests_deferred[{ ]/ {print $2; exit}' <<<"$metrics")"
+  elif [[ "${WB_STACK:-vllm}" == "pytorch" ]]; then
+    running="$(awk '/^pytorch:num_requests_running[{ ]/ {print $2; exit}' <<<"$metrics")"
+    waiting="$(awk '/^pytorch:num_requests_waiting[{ ]/ {print $2; exit}' <<<"$metrics")"
   else
     running="$(awk '/^vllm:num_requests_running/ {print $2; exit}' <<<"$metrics")"
     waiting="$(awk '/^vllm:num_requests_waiting[{ ]/ {print $2; exit}' <<<"$metrics")"
@@ -334,11 +360,15 @@ bench_args() {
 
 if [[ $DRY -eq 1 ]]; then
   echo "point_id     : $WB_POINT_ID"
+  echo "stack        : ${WB_STACK:-vllm}"
   echo "model        : $WB_MODEL"
   echo "server flags : $WB_SERVER_ARGS"
   echo "warmup       : $WB_WARMUP_PROMPTS prompts @ ${WB_REQUEST_RATE} req/s"
   echo "measurement  : $WB_NUM_PROMPTS prompts @ ${WB_REQUEST_RATE} req/s, ${WB_INPUT_LEN}in/${WB_OUTPUT_LEN}out"
   echo "bench argv   :"; mapfile -t _a < <(bench_args "$WB_NUM_PROMPTS" "$BENCH_JSON"); printf '  %s\n' "${_a[@]}"
+  if [[ "${WB_STACK:-vllm}" == "pytorch" ]]; then
+    echo "profile pass : batch ${WB_PROFILE_BATCH_SIZE} x ${WB_PROFILE_INPUT_LEN}in/${WB_PROFILE_OUTPUT_LEN}out, after the window"
+  fi
   echo "would write  : $RESULT_JSON"
   exit 0
 fi
@@ -388,6 +418,30 @@ FINISHED_AT="$WINDOW_END"
 
 stop_poller
 tail -n 2000 "$SERVER_LOG_LIVE" > "$SERVER_LOG" 2>/dev/null || true
+
+# --- pytorch arm: allocator snapshot, then the profiler pass -----------------
+# Both happen AFTER the window has closed and the pollers have stopped, so
+# neither the profiler's overhead nor its synthetic batch touches a measured
+# number. The allocator snapshot is read first, before the profile pass can
+# move the high-water mark.
+PROFILE_ARGS=()
+if [[ "${WB_STACK:-vllm}" == "pytorch" ]]; then
+  if curl -sf -m 10 "http://127.0.0.1:${WB_PORT}/wattbench/memory" -o "$MEMORY_JSON"; then
+    PROFILE_ARGS+=(--memory-json "$MEMORY_JSON")
+  else
+    log "WARN: could not read /wattbench/memory"
+  fi
+  log "profile pass: batch ${WB_PROFILE_BATCH_SIZE} x ${WB_PROFILE_INPUT_LEN}in/${WB_PROFILE_OUTPUT_LEN}out under torch.profiler"
+  if curl -sf -m 900 -X POST "http://127.0.0.1:${WB_PORT}/wattbench/profile" \
+       -H 'Content-Type: application/json' \
+       -d "{\"batch_size\": ${WB_PROFILE_BATCH_SIZE}, \"input_len\": ${WB_PROFILE_INPUT_LEN}, \"output_len\": ${WB_PROFILE_OUTPUT_LEN}}" \
+       -o "$PROFILE_JSON"; then
+    PROFILE_ARGS+=(--profile-json "$PROFILE_JSON")
+  else
+    log "WARN: profile pass failed; the record will say so"
+    rm -f "$PROFILE_JSON"
+  fi
+fi
 
 # --- energy ---------------------------------------------------------------
 IDLE_ARGS=()
@@ -445,6 +499,7 @@ for n in ${NOTES+"${NOTES[@]}"}; do NOTE_ARGS+=(--note "$n"); done
   --window-start "$WINDOW_START" --window-end "$WINDOW_END" \
   ${IDLE_NOTE_ARGS+"${IDLE_NOTE_ARGS[@]}"} \
   ${NOTE_ARGS+"${NOTE_ARGS[@]}"} \
+  ${PROFILE_ARGS+"${PROFILE_ARGS[@]}"} \
   --out "$RESULT_JSON"
 
 log "done: $(basename "$RESULT_JSON")"

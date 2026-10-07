@@ -11,29 +11,45 @@
 | 32          | vLLM      | AWQ int4    | served | 1542      | baseline | 469.4       | 8.21       | 2663       | 381.1  | 0.262 | baseline |
 | 32          | llama.cpp | GGUF Q4_K_M | served | 755.6     | -51.0%   | 221.5       | 24.7       | 5490       | 247.1  | 0.339 | +29.1%   |
 
-Relative columns compare llama.cpp against vLLM at the same concurrency. Concurrency is held by the load generator (`--max-concurrency`), so it is the number of requests in flight, not an offered rate: there is no queue to grow and no SLO column, because every request is admitted as soon as a slot frees.
+Relative columns compare each stack against vLLM at the same concurrency. Concurrency is held by the load generator (`--max-concurrency`), so it is the number of requests in flight, not an offered rate: there is no queue to grow and no SLO column, because every request is admitted as soon as a slot frees.
 
 ### What each stack reports about itself
 
-| concurrency | stack     | requests running (mean) | KV utilisation | preemptions | completed |
-|-------------|-----------|-------------------------|----------------|-------------|-----------|
-| 1           | vLLM      | 0.933                   | 0.2%           | 0           | 200/200   |
-| 1           | llama.cpp | 0.956                   | not run        | not run     | 200/200   |
-| 8           | vLLM      | 6.62                    | 1.3%           | 0           | 800/800   |
-| 8           | llama.cpp | 7.31                    | not run        | not run     | 800/800   |
-| 32          | vLLM      | 26.7                    | 5.4%           | 0           | 1600/1600 |
-| 32          | llama.cpp | 30.1                    | not run        | not run     | 1600/1600 |
+| concurrency | stack     | requests running (mean) | queued (mean) | KV utilisation | preemptions | completed |
+|-------------|-----------|-------------------------|---------------|----------------|-------------|-----------|
+| 1           | vLLM      | 0.933                   | 0             | 0.2%           | 0           | 200/200   |
+| 1           | llama.cpp | 0.956                   | 0             | not run        | not run     | 200/200   |
+| 8           | vLLM      | 6.62                    | 0             | 1.3%           | 0           | 800/800   |
+| 8           | llama.cpp | 7.31                    | 0             | not run        | not run     | 800/800   |
+| 32          | vLLM      | 26.7                    | 0.0141        | 5.4%           | 0           | 1600/1600 |
+| 32          | llama.cpp | 30.1                    | 0             | not run        | not run     | 1600/1600 |
 
-`not run` in the last two columns is a difference between the stacks rather than a gap in the measurement. llama.cpp reports no preemption counter because it does not preempt: a request that finds no free slot is deferred before it starts rather than evicted after it starts. It also exports no KV-utilisation ratio, and the quantity would not mean the same thing if it did — llama.cpp partitions KV into fixed per-slot budgets where vLLM shares one pool.
+`not run` in the KV and preemption columns is a difference between the stacks rather than a gap in the measurement. llama.cpp reports no preemption counter because it does not preempt: a request that finds no free slot is deferred before it starts rather than evicted after it starts. It also exports no KV-utilisation ratio, and the quantity would not mean the same thing if it did — llama.cpp partitions KV into fixed per-slot budgets where vLLM shares one pool.
+
+### Memory and GPU time
+
+| concurrency | stack     | nvidia-smi peak | torch peak alloc | weights | GPU ms/tok (stream) | GPU busy | kernel ms/tok (profiler) |
+|-------------|-----------|-----------------|------------------|---------|---------------------|----------|--------------------------|
+| 1           | vLLM      | 23.40 GiB       | not run          | not run | not run             | not run  | not run                  |
+| 1           | llama.cpp | 6.32 GiB        | not run          | not run | not run             | not run  | not run                  |
+| 8           | vLLM      | 23.38 GiB       | not run          | not run | not run             | not run  | not run                  |
+| 8           | llama.cpp | 7.86 GiB        | not run          | not run | not run             | not run  | not run                  |
+| 32          | vLLM      | 23.38 GiB       | not run          | not run | not run             | not run  | not run                  |
+| 32          | llama.cpp | 13.11 GiB       | not run          | not run | not run             | not run  | not run                  |
+
+**The two memory columns are different instruments and read differently on purpose.** `nvidia-smi peak` is `memory.used` sampled at ~2 Hz by the power poller, for every stack; it is what the driver handed the process. For vLLM that is the pool it pre-allocates at startup (`gpu_memory_utilization` × the card), so it is nearly flat at every concurrency and says what the server *reserved*, not what it *used*. For llama.cpp it is weights plus the fixed per-slot KV budget. `torch peak alloc` is `torch.cuda.max_memory_allocated` read off the serving process itself — live tensor bytes at the high-water mark, weights and `DynamicCache` included — and only the HF + PyTorch arm can report it, because only there is the server a PyTorch process this harness can ask.
+
+**The two GPU-time columns differ the same way.** `GPU ms/tok (stream)` is CUDA-event elapsed time around every `generate()` call in the window, divided by output tokens: the GPU cost of a token as this stack actually pays it, Python-side gaps between kernels included, with `GPU busy` the same time as a fraction of the window. `kernel ms/tok (profiler)` is self CUDA kernel time from a `torch.profiler` pass over one synthetic batch of the point's shape, run **after** the window closed so its overhead touches no measured number; `b=` is the batch it profiled. The gap between the two columns is the HF decode loop's overhead per token. Neither exists for vLLM or llama.cpp — the first is a counter only `pytorch_server.py` exports, and the second needs the profiler inside the server — so both read `not run` there rather than being estimated.
 
 **Every point completed every request it issued.** That is worth stating because it was not true on the first attempt: with HTTP connection reuse left on, llama.cpp dropped 10.9% of requests at concurrency 8 and 11.2% at concurrency 32 — see `e4_transport.md`, and the superseded runs in `results/raw/`.
 
 ### Quality guard — GSM8K exact match, n=200
 
-| stack     | format      | correct | exact match | 95% Wilson interval | request errors |
-|-----------|-------------|---------|-------------|---------------------|----------------|
-| vLLM      | AWQ int4    | 182/200 | 91.0%       | 86.2% – 94.2%       | 0              |
-| llama.cpp | GGUF Q4_K_M | 180/200 | 90.0%       | 85.1% – 93.4%       | 0              |
+| stack        | format      | correct | exact match | 95% Wilson interval | request errors |
+|--------------|-------------|---------|-------------|---------------------|----------------|
+| vLLM         | AWQ int4    | 182/200 | 91.0%       | 86.2% – 94.2%       | 0              |
+| llama.cpp    | GGUF Q4_K_M | 180/200 | 90.0%       | 85.1% – 93.4%       | 0              |
+| HF + PyTorch | BF16        | not run | not run     | not run             | not run        |
 
 vLLM/AWQ minus llama.cpp/GGUF is **+1.0 points**, 95% interval on the difference -4.9 to +6.9 points (Newcombe score method). The gap is **within noise** at n=200.
 

@@ -1,0 +1,27 @@
+# Control: the same point as pytorch_c8 with torch.compile on (static KV cache,
+# mode=reduce-overhead, i.e. CUDA graphs). A different server fingerprint, so
+# it loads its own copy of the weights.
+#
+# Fixed concurrency on purpose: every new (batch size, cache length) pair
+# recompiles, and a Poisson arrival stream would recompile its way through
+# the measurement. At a fixed c8 with 800 prompts of identical shape the
+# warmup's 96 prompts absorb the compile, which is the only honest way to run
+# a compiled point in this protocol. The warmup is sized up for it.
+extends: ../_base_7b_pytorch.yaml
+experiment: E4
+point_id: e4_pytorch_bf16_c8_compile
+description: E4 control, HF transformers + PyTorch, BF16, torch.compile reduce-overhead, concurrency 8
+
+server:
+  compile: true
+  compile_mode: reduce-overhead
+  load_timeout_s: 1800
+
+load:
+  request_rate: inf
+  max_concurrency: 8
+  num_prompts: 800
+
+protocol:
+  warmup_s: 120
+  warmup_prompts: 192

@@ -314,6 +314,32 @@ Two notes for anyone benchmarking llama.cpp against vLLM afterwards:
 
 ---
 
+## 6c. The PyTorch stack needs nothing extra — except for `torch.compile`
+
+`pytorch_server.py` runs on the same venv: torch and transformers are already
+there because vLLM depends on them, and recording one torch version for both
+arms is the point. Check once:
+
+```bash
+~/wattbench-venv/bin/python -c "import torch, transformers; print(torch.__version__, transformers.__version__, torch.cuda.is_available())"
+```
+
+The compiled control (`configs/e4/pytorch_c8_compile.yaml`) is the one place
+that can fail here. `mode=reduce-overhead` goes through Inductor, which
+generates Triton kernels — Triton ships its own `ptxas`, so no CUDA toolkit is
+needed, same as the FlashInfer note in §4 — but Inductor also needs a C/C++
+compiler on `PATH` for its wrapper code. If the server log shows
+`CppCompileError` or `No such file or directory: 'g++'`:
+
+```bash
+sudo apt install -y build-essential      # needs sudo; if you have none, skip the control
+```
+
+With no `sudo`, run `./run_e4_pytorch.sh --skip-compile`: the three plain
+points and the guard do not touch Inductor. Set `TORCHINDUCTOR_CACHE_DIR` to an
+ext4 path, not `/mnt/*`, for the same reason as `HF_HOME` (§2); it is recorded
+in provenance when set.
+
 ## 7. Before every measured run
 
 - **Close other GPU consumers**, browser hardware acceleration included. The

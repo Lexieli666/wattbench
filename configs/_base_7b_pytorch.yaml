@@ -1,0 +1,70 @@
+# PyTorch arm of the stack comparison: HF transformers + model.generate, served
+# by pytorch_server.py. The baseline every serving framework is implicitly
+# measured against and almost never actually measured.
+#
+# Same model family and size as the other two arms, same traffic shape, same
+# tokenizer (it IS the HF tokenizer), same load generator, same transport. And,
+# as with E4's two arms, a different weight format: this stack's native
+# precision is BF16, because plain transformers has no int4 kernel path that is
+# "just PyTorch". So the caveat on every E4 number extends to this one -- it
+# compares stacks at their native format, and a gap includes whatever the
+# format costs. The like-for-like control is the vLLM BF16 reference server
+# (_base_7b_bf16.yaml): same weights, different stack.
+#
+# Serving flags are deliberately minimal, by the same rule as llama.cpp's arm:
+# the stack runs at its own defaults except where the workload forces a choice.
+#   max_batch_size   the analogue of vLLM's max_num_seqs; rows per static batch
+#   batch_wait_ms    0 -- the other stacks are not given a batching delay either
+#   attn_implementation  pinned to SDPA so the fingerprint means one thing
+#                        across transformers versions
+#   compile          off here; compiled points are a separate, labelled arm
+#
+# Static batching is the property under test, not a limitation to tune away:
+# a request that arrives while a batch is decoding waits for the next batch,
+# and that queue is exported on /metrics into the same column the other
+# stacks fill.
+experiment: base
+description: Qwen2.5-7B-Instruct BF16 served by HF transformers + PyTorch (model.generate)
+
+server:
+  stack: pytorch
+  model: Qwen/Qwen2.5-7B-Instruct
+  revision: null
+  dtype: bfloat16
+  max_model_len: 4096           # per sequence, matching the other arms
+  max_batch_size: 32            # must cover the offered concurrency
+  batch_wait_ms: 0
+  attn_implementation: sdpa
+  compile: false
+  compile_mode: reduce-overhead
+  profile_batch_size: null      # null => the point's max_concurrency
+  profile_input_len: null       # null => the point's input_len
+  profile_output_len: null      # null => the point's output_len
+  port: 8000
+  extra_args: []
+  load_timeout_s: 900
+
+load:
+  dataset: random
+  input_len: 512
+  output_len: 128
+  request_rate: inf
+  burstiness: 1.0
+  num_prompts: 200
+  max_concurrency: 1
+  seed: 0
+  ignore_eos: true
+  temperature: 0.0
+  # Same transport as both E4 arms: one connection per request. See
+  # configs/e4/_base_e4_vllm.yaml for the measurement that made this mandatory.
+  extra_args: ['--header', 'Connection=close']
+
+protocol:
+  warmup_s: 30
+  warmup_prompts: 32
+  min_duration_s: 180
+  min_requests: 200
+
+slo:
+  ttft_p95_s: 1.0
+  e2e_p95_s: 10.0

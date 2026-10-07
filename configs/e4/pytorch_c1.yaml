@@ -1,0 +1,15 @@
+# E4, PyTorch arm, one request in flight. At concurrency 1 static batching and
+# continuous batching are the same thing -- one row -- so this point isolates
+# the kernel path: HF SDPA + BF16 GEMMs against vLLM's and llama.cpp's int4.
+extends: ../_base_7b_pytorch.yaml
+experiment: E4
+point_id: e4_pytorch_bf16_c1
+description: E4 stack comparison, HF transformers + PyTorch, BF16, concurrency 1, chat shape
+
+load:
+  request_rate: inf
+  max_concurrency: 1
+  num_prompts: 200
+
+protocol:
+  warmup_prompts: 32

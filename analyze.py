@@ -10,7 +10,8 @@ prints as "not run" rather than an estimate.
   ./analyze.py variance --experiment E0 # run-to-run coefficient of variation
   ./analyze.py sweep --experiment E1    # load sweep table
   ./analyze.py frontier --experiment E3 # model-size frontier table
-  ./analyze.py stacks --experiment E4   # vLLM vs llama.cpp
+  ./analyze.py stacks --experiment E4   # vLLM vs llama.cpp vs HF+PyTorch
+  ./analyze.py memory                   # peak GPU memory, every run, every stack
   ./analyze.py economics                # $/1M tokens and break-even volumes
   ./analyze.py plots                    # the three headline charts
   ./analyze.py all                      # everything, into results/
@@ -277,6 +278,9 @@ def row_view(r: dict) -> dict:
     cfg = r.get("config") or {}
     load = cfg.get("load") or {}
     server = cfg.get("server") or {}
+    mem = harness.derived_gpu_memory(r, RAW) if r.get("status") == "ok" else {}
+    gt = r.get("gpu_time") or {}
+    prof = r.get("profile") or {}
     return {
         "point_id": r.get("point_id"),
         "experiment": r.get("experiment"),
@@ -332,6 +336,26 @@ def row_view(r: dict) -> dict:
         "queue_max": g(sm, "num_requests_waiting", "max"),
         "queue_growing": g(sm, "queue_growth", "growing"),
         "preemptions": sm.get("num_preemptions_total_delta"),
+        # Peak GPU memory. Present in the record from 2026-10; for earlier
+        # runs derived at read time from the committed .power.json sidecar
+        # (harness.derived_gpu_memory), so no raw file is rewritten. Two
+        # instruments with two meanings -- see harness.gpu_memory_section.
+        "mem_peak_smi_gib": mem.get("nvidia_smi_peak_gib"),
+        "torch_peak_alloc_gib": mem.get("torch_max_memory_allocated_gib"),
+        "torch_peak_reserved_gib": mem.get("torch_max_memory_reserved_gib"),
+        "weights_gib": mem.get("model_weights_gib"),
+        "mem_derived": bool(mem.get("derived_at_read_time")),
+        # GPU-stream time per token and the post-window kernel profile: only
+        # the pytorch arm exports these; everything else reads as not run.
+        "gpu_ms_per_tok": gt.get("gpu_ms_per_output_token") if gt.get("available") else None,
+        "gpu_busy_frac": gt.get("gpu_busy_frac") if gt.get("available") else None,
+        "kernel_ms_per_tok": (prof.get("cuda_kernel_ms_per_output_token")
+                              if prof.get("available") else None),
+        "kernel_busy_frac": (prof.get("gpu_busy_frac_generate")
+                             if prof.get("available") else None),
+        "kernel_categories": (prof.get("categories_generate") or {}) if prof.get("available") else {},
+        "profile_batch": prof.get("batch_size") if prof.get("available") else None,
+        "compiled": bool(server.get("compile")),
     }
 
 
@@ -622,13 +646,19 @@ def arm_of(r: dict) -> str:
 STACK_LABEL = {
     "vllm": "vLLM",
     "llamacpp": "llama.cpp",
+    "pytorch": "HF + PyTorch",
 }
 # What each stack was actually serving. E4's whole caveat lives in this dict:
-# the two arms are not the same weights.
+# the arms are not the same weights.
 STACK_FORMAT = {
     "vllm": "AWQ int4",
     "llamacpp": "GGUF Q4_K_M",
+    "pytorch": "BF16",
 }
+# Table order. vLLM first because it is the baseline the relative columns
+# compare against; the PyTorch arm last because it is the newest and the only
+# one not at int4.
+STACK_ORDER = ["vllm", "llamacpp", "pytorch"]
 E4_CAVEAT = (
     "**GGUF Q4_K_M and AWQ int4 are different quantization formats.** This "
     "compares two serving stacks each at its own native int4, not one set of "
@@ -637,6 +667,23 @@ E4_CAVEAT = (
     "model family and size (Qwen2.5-7B-Instruct), same traffic shape "
     "(512 in / 128 out), same tokenizer, same load generator, same idle "
     "baseline, same session."
+)
+# The same caveat once the HF + PyTorch arm has rows: a third format, and a
+# third session. The two-arm wording above is kept verbatim until then, so
+# regenerating the tables before the arm is measured changes nothing.
+E4_CAVEAT_THREE = (
+    "**GGUF Q4_K_M, AWQ int4 and BF16 are different weight formats.** This "
+    "compares serving stacks each at its own native format, not one set of "
+    "weights on several servers, so a throughput or energy gap here includes "
+    "whatever the formats themselves cost. The HF + PyTorch arm serves BF16 "
+    "because plain transformers has no int4 path that is still \"just "
+    "PyTorch\"; its like-for-like format control is the vLLM BF16 reference "
+    "server of E1/E2 (same weights, different stack). Everything else is held "
+    "equal: same model family and size (Qwen2.5-7B-Instruct), same traffic "
+    "shape (512 in / 128 out), same tokenizer, same load generator, same "
+    "transport. The vLLM and llama.cpp arms share a session; the PyTorch arm "
+    "was measured later and carries cross-session drift (~2% on tail latency) "
+    "on top of the within-session bar -- its record says which session it was."
 )
 
 
@@ -809,6 +856,135 @@ def cmd_ablation(args: argparse.Namespace) -> str:
 # --------------------------------------------------------------------------
 
 
+def _gib(v: Any) -> str:
+    return f"{v:.2f}" if isinstance(v, (int, float)) else NOT_RUN
+
+
+def _stacks_memory_and_gpu_time(rows: list[dict], concs: list, stacks: list[str]) -> list[str]:
+    """Peak memory and GPU time per token, per stack and concurrency.
+
+    Two memory instruments and two GPU-time instruments, each named for what
+    it is, because the pairs do not measure the same thing:
+
+      nvidia-smi peak      what the driver handed the process; for vLLM, the
+                           pre-allocated pool, so it reads ~23 GiB regardless
+      torch peak alloc     live tensor bytes at the high-water mark; only the
+                           PyTorch arm can report it (it is its own process)
+      GPU ms/tok (stream)  CUDA-event time inside generate() per output token,
+                           over the whole window -- kernels plus the gaps the
+                           HF loop leaves between them
+      kernel ms/tok        self CUDA kernel time per output token from a
+                           torch.profiler pass on one synthetic batch after the
+                           window; gaps excluded, profiler overhead excluded
+                           from every other number by construction
+    """
+    body = []
+    for c in concs:
+        for st in stacks:
+            r = next((x for x in rows if x["max_concurrency"] == c
+                      and stack_of(x) == st and x["status"] == "ok"), None)
+            if not r:
+                continue
+            body.append([
+                str(c), STACK_LABEL[st],
+                _gib(r["mem_peak_smi_gib"]) + ("" if r["mem_peak_smi_gib"] is None else " GiB"),
+                (_gib(r["torch_peak_alloc_gib"]) + " GiB") if r["torch_peak_alloc_gib"] is not None else NOT_RUN,
+                (_gib(r["weights_gib"]) + " GiB") if r["weights_gib"] is not None else NOT_RUN,
+                fmt(r["gpu_ms_per_tok"], ".3g") if r["gpu_ms_per_tok"] is not None else NOT_RUN,
+                f"{r['gpu_busy_frac'] * 100:.0f}%" if r["gpu_busy_frac"] is not None else NOT_RUN,
+                (fmt(r["kernel_ms_per_tok"], ".3g") + f" (b={r['profile_batch']})")
+                if r["kernel_ms_per_tok"] is not None else NOT_RUN,
+            ])
+    if not body:
+        return []
+    out = ["### Memory and GPU time", "",
+           md_table(["concurrency", "stack", "nvidia-smi peak", "torch peak alloc",
+                     "weights", "GPU ms/tok (stream)", "GPU busy", "kernel ms/tok (profiler)"],
+                    body), ""]
+    out.append(
+        "**The two memory columns are different instruments and read "
+        "differently on purpose.** `nvidia-smi peak` is `memory.used` sampled "
+        "at ~2 Hz by the power poller, for every stack; it is what the driver "
+        "handed the process. For vLLM that is the pool it pre-allocates at "
+        "startup (`gpu_memory_utilization` × the card), so it is nearly flat "
+        "at every concurrency and says what the server *reserved*, not what it "
+        "*used*. For llama.cpp it is weights plus the fixed per-slot KV budget. "
+        "`torch peak alloc` is `torch.cuda.max_memory_allocated` read off the "
+        "serving process itself — live tensor bytes at the high-water mark, "
+        "weights and `DynamicCache` included — and only the HF + PyTorch arm "
+        "can report it, because only there is the server a PyTorch process "
+        "this harness can ask.")
+    out.append("")
+    out.append(
+        "**The two GPU-time columns differ the same way.** `GPU ms/tok "
+        "(stream)` is CUDA-event elapsed time around every `generate()` call "
+        "in the window, divided by output tokens: the GPU cost of a token as "
+        "this stack actually pays it, Python-side gaps between kernels "
+        "included, with `GPU busy` the same time as a fraction of the window. "
+        "`kernel ms/tok (profiler)` is self CUDA kernel time from a "
+        "`torch.profiler` pass over one synthetic batch of the point's shape, "
+        "run **after** the window closed so its overhead touches no measured "
+        "number; `b=` is the batch it profiled. The gap between the two "
+        "columns is the HF decode loop's overhead per token. Neither exists "
+        "for vLLM or llama.cpp — the first is a counter only `pytorch_server.py` "
+        "exports, and the second needs the profiler inside the server — so "
+        f"both read `{NOT_RUN}` there rather than being estimated.")
+    out.append("")
+    cats = next((r["kernel_categories"] for r in rows
+                 if r["kernel_categories"] and stack_of(r) == "pytorch"), None)
+    if cats:
+        parts = [f"{k} {v['share'] * 100:.0f}%" for k, v in cats.items()
+                 if v.get("share") is not None][:5]
+        out.append("Where the HF + PyTorch arm's kernel time went in the profiled "
+                   "decode (self CUDA time, coarse name-based grouping): "
+                   + ", ".join(parts) + ". The per-kernel top 25 is in each "
+                   "record's `profile.top_kernels_generate`.")
+        out.append("")
+    return out
+
+
+def _stacks_compile_control(rows: list[dict]) -> list[str]:
+    """torch.compile control rows: compiled vs plain at the same concurrency."""
+    comp = [r for r in rows if r["compiled"]]
+    if not comp:
+        return []
+    body = []
+    for r in sorted(comp, key=lambda x: int(x["max_concurrency"] or 0)):
+        base = next((x for x in rows if not x["compiled"] and stack_of(x) == "pytorch"
+                     and x["max_concurrency"] == r["max_concurrency"]
+                     and x["status"] == "ok"), None)
+
+        def rel(field: str) -> str:
+            if not base or base.get(field) in (None, 0) or r.get(field) is None:
+                return "-"
+            return f"{(r[field] / base[field] - 1) * 100:+.1f}%"
+
+        if r["status"] != "ok":
+            body.append([str(r["max_concurrency"]), r["status"]] + ["--"] * 7)
+            continue
+        body.append([
+            str(r["max_concurrency"]), "served",
+            fmt(r["out_tok_throughput"], ".4g"), rel("out_tok_throughput"),
+            fmt(r["ttft_p50_ms"], ".4g"), fmt(r["itl_p50_ms"], ".3g"), rel("itl_p50_ms"),
+            fmt(r["j_per_out_tok"], ".3g"), rel("j_per_out_tok"),
+        ])
+    out = ["#### Control: torch.compile on the HF + PyTorch arm", "",
+           md_table(["concurrency", "status", "out tok/s", "vs plain", "TTFT p50 ms",
+                     "ITL p50 ms", "vs plain", "J/tok", "vs plain"], body), ""]
+    out.append(
+        "`torch.compile` with a static KV cache and `mode=reduce-overhead` "
+        "(CUDA graphs), everything else identical to the plain PyTorch point "
+        "at the same concurrency. Measured at fixed concurrency only: every "
+        "new (batch size, cache length) pair recompiles, and a Poisson "
+        "arrival stream would recompile its way through the window. The "
+        "warmup for this point is sized to absorb the compile; whether it did "
+        "is visible in the record's server log. This is a control on the "
+        "PyTorch arm, not a fourth stack, which is why it is not in the main "
+        "table or the guard.")
+    out.append("")
+    return out
+
+
 def cmd_stacks(args: argparse.Namespace) -> str:
     """E4: vLLM vs llama.cpp at fixed concurrency."""
     results = load_results(args.experiment or "E4", include_failed=True,
@@ -817,21 +993,27 @@ def cmd_stacks(args: argparse.Namespace) -> str:
         return f"E4 stack comparison: {NOT_RUN}."
     rows = [row_view(r) for r in results]
 
-    out = ["## E4 — serving-stack comparison (Qwen2.5-7B int4, chat shape)", "",
-           E4_CAVEAT, ""]
+    present = {stack_of(r) for r in rows}
+    three = "pytorch" in present
+    out = ["## E4 — serving-stack comparison "
+           + ("(Qwen2.5-7B, chat shape)" if three else "(Qwen2.5-7B int4, chat shape)"),
+           "", E4_CAVEAT_THREE if three else E4_CAVEAT, ""]
 
     concs = sorted({r["max_concurrency"] for r in rows
                     if r["max_concurrency"] is not None}, key=int)
-    stacks = ["vllm", "llamacpp"]
+    stacks = [st for st in STACK_ORDER if st in present]
+    # The compiled PyTorch point is a control on the PyTorch arm, not a fourth
+    # stack; it gets its own rows below rather than a column here.
+    main_rows = [r for r in rows if not r["compiled"]]
     body = []
     for c in concs:
         for st in stacks:
-            match = [r for r in rows
+            match = [r for r in main_rows
                      if r["max_concurrency"] == c and stack_of(r) == st]
             if not match:
                 continue
             r = match[0]
-            base = next((x for x in rows if x["max_concurrency"] == c
+            base = next((x for x in main_rows if x["max_concurrency"] == c
                          and stack_of(x) == "vllm"), None)
 
             def rel(field: str, r=r, base=base, st=st) -> str:
@@ -861,18 +1043,23 @@ def cmd_stacks(args: argparse.Namespace) -> str:
              "J/tok", "vs vLLM"], body))
         out.append("")
         out.append(
-            "Relative columns compare llama.cpp against vLLM at the same "
+            "Relative columns compare each stack against vLLM at the same "
             "concurrency. Concurrency is held by the load generator "
             "(`--max-concurrency`), so it is the number of requests in flight, "
             "not an offered rate: there is no queue to grow and no SLO column, "
-            "because every request is admitted as soon as a slot frees.")
+            "because every request is admitted as soon as a slot frees"
+            + (" -- except on the HF + PyTorch arm, where a request admitted by "
+               "the client still waits server-side for the current static "
+               "batch to finish. That wait is inside its TTFT, and its queue is "
+               "in the next table." if three else "."))
         out.append("")
+        out.extend(_stacks_compile_control(rows))
 
     # --- what each stack reports about itself ---
     sbody = []
     for c in concs:
         for st in stacks:
-            match = [r for r in rows if r["max_concurrency"] == c
+            match = [r for r in main_rows if r["max_concurrency"] == c
                      and stack_of(r) == st and r["status"] == "ok"]
             if not match:
                 continue
@@ -887,6 +1074,7 @@ def cmd_stacks(args: argparse.Namespace) -> str:
             sbody.append([
                 str(c), STACK_LABEL[st],
                 fmt(r["batch_mean"], ".3g"),
+                fmt(r["queue_mean"], ".3g") if r["queue_mean"] is not None else NOT_RUN,
                 f"{r['kv_util_mean'] * 100:.1f}%" if r["kv_util_mean"] is not None else NOT_RUN,
                 fmt(r["preemptions"], ".4g") if r["preemptions"] is not None else NOT_RUN,
                 f"{completed}/{issued}" if issued else fmt(completed, ".4g"),
@@ -895,19 +1083,26 @@ def cmd_stacks(args: argparse.Namespace) -> str:
         out.append("### What each stack reports about itself")
         out.append("")
         out.append(md_table(
-            ["concurrency", "stack", "requests running (mean)", "KV utilisation",
-             "preemptions", "completed"], sbody))
+            ["concurrency", "stack", "requests running (mean)", "queued (mean)",
+             "KV utilisation", "preemptions", "completed"], sbody))
         out.append("")
         out.append(
-            f"`{NOT_RUN}` in the last two columns is a difference between the "
-            "stacks rather than a gap in the measurement. llama.cpp reports no "
-            "preemption counter because it does not preempt: a request that "
-            "finds no free slot is deferred before it starts rather than "
-            "evicted after it starts. It also exports no KV-utilisation ratio, "
-            "and the quantity would not mean the same thing if it did — "
-            "llama.cpp partitions KV into fixed per-slot budgets where vLLM "
-            "shares one pool.")
+            f"`{NOT_RUN}` in the KV and preemption columns is a difference "
+            "between the stacks rather than a gap in the measurement. llama.cpp "
+            "reports no preemption counter because it does not preempt: a "
+            "request that finds no free slot is deferred before it starts "
+            "rather than evicted after it starts. It also exports no "
+            "KV-utilisation ratio, and the quantity would not mean the same "
+            "thing if it did — llama.cpp partitions KV into fixed per-slot "
+            "budgets where vLLM shares one pool."
+            + (" The HF + PyTorch arm has neither: a `DynamicCache` has no pool "
+               "to be a fraction of, and a static batch is never evicted. What "
+               "it does report is the **queued** column — requests the client "
+               "has in flight that are waiting for the current `generate()` "
+               "call to finish, which is the cost of static batching made "
+               "visible." if three else ""))
         out.append("")
+        out.extend(_stacks_memory_and_gpu_time(main_rows, concs, stacks))
         dropped = [r for r in rows if r["status"] == "ok" and r["completed"]
                    and r["max_concurrency"]
                    and r["completed"] < (next(
@@ -934,7 +1129,8 @@ def cmd_stacks(args: argparse.Namespace) -> str:
 # The two E4 arms as the quality guard sees them. Labels are explicit rather
 # than derived: they must not collide with the E2 guard's n=50 arms, which stay
 # published untouched.
-E4_GUARD_ARMS = (("vllm", "awq_n200"), ("llamacpp", "gguf_q4km_n200"))
+E4_GUARD_ARMS = (("vllm", "awq_n200"), ("llamacpp", "gguf_q4km_n200"),
+                 ("pytorch", "hf_bf16_n200"))
 
 
 def cmd_stacks_guard() -> str:
@@ -975,21 +1171,33 @@ def cmd_stacks_guard() -> str:
          "request errors"], gbody))
     out.append("")
 
-    if len(stats) == 2:
+    # Every other arm against vLLM, the baseline the serving tables use. With
+    # only the two original arms present this prints exactly the published
+    # two-arm sentence; a third arm adds a sentence, not a new paragraph.
+    pair_within: list[bool] = []
+    if "vllm" in stats and len(stats) >= 2:
         (k1, n1) = stats["vllm"]
-        (k2, n2) = stats["llamacpp"]
-        gap = k1 / n1 - k2 / n2
-        lo, hi = newcombe_difference(k1, n1, k2, n2)
-        verdict = ("**within noise**" if lo <= 0 <= hi
-                   else "**distinguishable from zero**")
-        out.append(
-            f"vLLM/AWQ minus llama.cpp/GGUF is **{gap * 100:+.1f} points**, 95% "
-            f"interval on the difference {lo * 100:+.1f} to {hi * 100:+.1f} points "
-            f"(Newcombe score method). The gap is {verdict} at n=200.")
-        out.append("")
-        if lo <= 0 <= hi:
+        for other in ("llamacpp", "pytorch"):
+            if other not in stats:
+                continue
+            (k2, n2) = stats[other]
+            gap = k1 / n1 - k2 / n2
+            lo, hi = newcombe_difference(k1, n1, k2, n2)
+            within = lo <= 0 <= hi
+            pair_within.append(within)
+            verdict = "**within noise**" if within else "**distinguishable from zero**"
+            other_name = ("llama.cpp/GGUF" if other == "llamacpp"
+                          else f"{STACK_LABEL[other]}/{STACK_FORMAT[other]}")
             out.append(
-                "Plainly: **this guard finds no quality difference between the two "
+                f"vLLM/AWQ minus {other_name} is **{gap * 100:+.1f} points**, 95% "
+                f"interval on the difference {lo * 100:+.1f} to {hi * 100:+.1f} points "
+                f"(Newcombe score method). The gap is {verdict} at n=200.")
+            out.append("")
+    if pair_within:
+        if all(pair_within):
+            out.append(
+                "Plainly: **this guard finds no quality difference between the "
+                f"{'two ' if len(pair_within) == 1 else ''}"
                 "arms**, which is the useful outcome for a reader choosing a stack "
                 "— it means E4's throughput and energy result can be read as a "
                 "serving recommendation rather than a speed-for-accuracy trade. It "
@@ -1004,10 +1212,14 @@ def cmd_stacks_guard() -> str:
 
     out.append(
         "**The caveat that governs this table is the same one that governs the "
-        "rest of E4: these are different int4 formats.** A quality difference "
+        "rest of E4: these are different "
+        + ("weight formats" if "pytorch" in stats else "int4 formats")
+        + ".** A quality difference "
         "here is a property of the format-plus-stack pair, not of the batching "
         "implementation — GGUF Q4_K_M and AWQ quantize different tensors to "
-        "different group sizes, and nothing in this project separates the "
+        "different group sizes"
+        + (", and BF16 quantizes nothing at all" if "pytorch" in stats else "")
+        + ", and nothing in this project separates the "
         "format's contribution from the server's.")
     out.append("")
     # The reflex that has caught more defects here than anything else: compare
@@ -1036,8 +1248,11 @@ def cmd_stacks_guard() -> str:
         "Sample sizes are stated wherever these numbers appear beside E2's, "
         "because they are not the same measurement: E2's guard is n=50 and its "
         "subset is a different draw from this one, so the two are separate row "
-        "sets and are never pooled. Both arms here were measured in one "
-        "session, greedy, through the same client and the same "
+        "sets and are never pooled. "
+        + ("The vLLM and llama.cpp arms were measured in one session and the "
+           "HF + PyTorch arm in a later one; all three " if "pytorch" in stats
+           else "Both arms here were measured in one session, ")
+        + "greedy, through the same client and the same "
         "`Connection: close` transport the E4 serving runs used.")
     return "\n".join(out)
 
@@ -1928,9 +2143,9 @@ def plot_stacks(rows: list[dict], path: str) -> bool:
     """
     plt = _style()
     series = []
-    for st in ("vllm", "llamacpp"):
+    for st in STACK_ORDER:
         pts = sorted([r for r in rows
-                      if stack_of(r) == st and r["status"] == "ok"
+                      if stack_of(r) == st and r["status"] == "ok" and not r["compiled"]
                       and r["out_tok_throughput"] and r["max_concurrency"]],
                      key=lambda r: int(r["max_concurrency"]))
         if pts:
@@ -1939,11 +2154,12 @@ def plot_stacks(rows: list[dict], path: str) -> bool:
         return False
 
     fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.4))
-    colour = {"vllm": C["blue"], "llamacpp": C["orange"]}
-    # Endpoint labels are nudged apart per series: at high concurrency the two
+    # Slots assigned by entity, never re-ordered when a series is absent.
+    colour = {"vllm": C["blue"], "llamacpp": C["orange"], "pytorch": C["aqua"]}
+    # Endpoint labels are nudged apart per series: at high concurrency the
     # energy curves converge to within a few hundredths of a joule and the
     # labels would otherwise print on top of each other.
-    nudge = {"vllm": -9, "llamacpp": 9}
+    nudge = {"vllm": -9, "llamacpp": 9, "pytorch": 0}
     for st, pts in series:
         x = [int(p["max_concurrency"]) for p in pts]
         label = f"{STACK_LABEL[st]} ({STACK_FORMAT[st]})"
@@ -1969,7 +2185,12 @@ def plot_stacks(rows: list[dict], path: str) -> bool:
     axes[1].set_ylabel("Energy per output token (J)")
     axes[1].set_title("Energy per token")
     axes[0].legend(loc="upper left")
-    fig.suptitle("Two stacks at their native int4 — RTX 4090, Qwen2.5-7B, 512 in / 128 out",
+    present = {st for st, _ in series}
+    if "pytorch" in present:
+        title = f"{'Three' if len(series) == 3 else 'Two'} stacks at their native format"
+    else:
+        title = "Two stacks at their native int4"
+    fig.suptitle(f"{title} — RTX 4090, Qwen2.5-7B, 512 in / 128 out",
                  x=0.01, ha="left", fontsize=13, color=INK, weight="600")
 
     for ax in axes:
@@ -1977,10 +2198,12 @@ def plot_stacks(rows: list[dict], path: str) -> bool:
             ax.spines[side].set_visible(False)
         for side in ("left", "bottom"):
             ax.spines[side].set_color(GRID)
-    fig.text(0.01, 0.005,
-             "GGUF Q4_K_M and AWQ int4 are different quantization formats: this "
-             "compares stacks at their native int4, not identical weights.",
-             ha="left", va="bottom", fontsize=7.5, color=INK_MUTED)
+    foot = ("GGUF Q4_K_M and AWQ int4 are different quantization formats: this "
+            "compares stacks at their native int4, not identical weights.")
+    if "pytorch" in {st for st, _ in series}:
+        foot = ("GGUF Q4_K_M, AWQ int4 and BF16 are different weight formats: this "
+                "compares stacks at their native format, not identical weights.")
+    fig.text(0.01, 0.005, foot, ha="left", va="bottom", fontsize=7.5, color=INK_MUTED)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fig.tight_layout(rect=(0, 0.045, 1, 0.93))
     fig.savefig(path)
@@ -2019,6 +2242,78 @@ def cmd_plots(args: argparse.Namespace) -> str:
 
 
 # --------------------------------------------------------------------------
+# memory: every run, every stack
+# --------------------------------------------------------------------------
+
+
+def cmd_memory(args: argparse.Namespace) -> str:
+    """Peak GPU memory for every served run, derived without rewriting raw.
+
+    The number comes from the .power.json sidecar committed beside each run
+    (power_log.py has recorded `mem_used_mib_max` from the first session), so
+    it is available for every run in the project, including the 80-odd that
+    predate the gpu_memory section in the record. The PyTorch arm adds the
+    allocator's own peak, which the nvidia-smi figure cannot give for a
+    server that pre-allocates.
+    """
+    results = load_results(args.experiment, include_failed=False,
+                           include_superseded=getattr(args, "include_superseded", False))
+    rows = [row_view(r) for r in results]
+    rows = [r for r in rows if r["mem_peak_smi_gib"] is not None
+            or r["torch_peak_alloc_gib"] is not None]
+    out = ["## Peak GPU memory, every served run", ""]
+    if not rows:
+        out.append(f"{NOT_RUN}: no run has a memory figure.")
+        return "\n".join(out)
+    out.append(
+        "`nvidia-smi peak` is `memory.used` over the measurement window, "
+        "sampled at ~2 Hz by the power poller (`mem_used_mib_max` in each "
+        "run's `.power.json`), so it exists for every run here whether or not "
+        "the run's record carries a `gpu_memory` section — runs before "
+        "2026-10 do not, and the column is derived at read time rather than "
+        "by rewriting them (`derived` marks those). **For vLLM it is the pool "
+        "the server reserved at startup, not live use**: vLLM allocates "
+        "`gpu_memory_utilization` × the card up front and fills its KV cache "
+        "inside that, so the figure is flat across load and says nothing "
+        "about how much KV a point actually used — `KV utilisation` in the "
+        "experiment tables is that number. `torch peak alloc` is "
+        "`torch.cuda.max_memory_allocated` from the serving process, live "
+        "tensor bytes at the high-water mark; only the HF + PyTorch arm "
+        "reports it.")
+    out.append("")
+    by_exp: dict[str, list[dict]] = {}
+    for r in rows:
+        by_exp.setdefault(str(r["experiment"] or "?"), []).append(r)
+    n_derived = 0
+    for exp in sorted(by_exp):
+        body = []
+        for r in sorted(by_exp[exp], key=lambda x: x["point_id"] or ""):
+            n_derived += int(r["mem_derived"])
+            st = stack_of(r)
+            body.append([
+                r["point_id"], STACK_LABEL.get(st, st),
+                (r["model"] or "").split("/")[-1],
+                # precision_of() reads vLLM checkpoint names; the other stacks
+                # serve one format each, named in STACK_FORMAT.
+                (r["quantization"] or "") if st == "vllm" else STACK_FORMAT.get(st, ""),
+                str(r["max_model_len"] or ""),
+                _gib(r["mem_peak_smi_gib"]),
+                _gib(r["torch_peak_alloc_gib"]) if r["torch_peak_alloc_gib"] is not None else NOT_RUN,
+                "derived" if r["mem_derived"] else "recorded",
+            ])
+        out.append(f"### {exp}")
+        out.append("")
+        out.append(md_table(["point", "stack", "model", "precision", "max ctx",
+                             "nvidia-smi peak GiB", "torch peak alloc GiB", "source"], body))
+        out.append("")
+    out.append(f"{len(rows)} run(s) — the newest run of every point that served "
+               f"(`--include-superseded` adds the earlier runs of re-run points) — "
+               f"{n_derived} of them with the figure derived at read time from the "
+               f"committed power log; none rewritten.")
+    return "\n".join(out)
+
+
+# --------------------------------------------------------------------------
 # all
 # --------------------------------------------------------------------------
 
@@ -2035,6 +2330,7 @@ def cmd_all(args: argparse.Namespace) -> str:
         "e3_frontier.md": cmd_frontier(ns),
         "e4_stacks.md": cmd_stacks(ns),
         "e5_economics.md": cmd_economics(ns),
+        "memory.md": cmd_memory(ns),
     }
     for name, text in sections.items():
         with open(os.path.join(TABLES, name), "w") as fh:
@@ -2049,7 +2345,7 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("summary", "variance", "sweep", "ablation", "frontier",
-                 "stacks", "economics", "plots", "all"):
+                 "stacks", "memory", "economics", "plots", "all"):
         p = sub.add_parser(name)
         p.add_argument("--experiment", default=None)
         p.add_argument("--include-superseded", action="store_true",
@@ -2058,7 +2354,7 @@ def main() -> int:
     fn = {
         "summary": cmd_summary, "variance": cmd_variance, "sweep": cmd_sweep,
         "ablation": cmd_ablation, "frontier": cmd_frontier,
-        "stacks": cmd_stacks,
+        "stacks": cmd_stacks, "memory": cmd_memory,
         "economics": cmd_economics, "plots": cmd_plots,
         "all": cmd_all,
     }[args.cmd]

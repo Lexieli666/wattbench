@@ -10,7 +10,7 @@ point_id: e1_chat_bf16_r4       # unique; names the raw file. Defaults to filena
 description: free text
 
 server:                         # identity of the served endpoint
-  stack: vllm                   # vllm | llamacpp (E4). Absent means vllm.
+  stack: vllm                   # vllm | llamacpp (E4) | pytorch (E4 third arm). Absent means vllm.
   model: Qwen/Qwen2.5-7B-Instruct
   revision: null                # HF commit; resolved and recorded either way
   quantization: null            # null | awq | awq_marlin | gptq_marlin | fp8
@@ -33,6 +33,18 @@ server:                         # identity of the served endpoint
   ctx_size: null                # TOTAL KV context; null => max_model_len * parallel
   cont_batching: true
   flash_attn: auto
+
+  # pytorch only (HF transformers + model.generate, pytorch_server.py); ignored
+  # by the other two. dtype, max_model_len, revision, tokenizer and
+  # served_model_name above apply to it too.
+  max_batch_size: 32            # rows per static batch; the analogue of max_num_seqs
+  batch_wait_ms: 0              # hold a forming batch for late arrivals; 0 = none
+  attn_implementation: sdpa     # sdpa | eager | flash_attention_2 | null (checkpoint default)
+  compile: false                # torch.compile(forward, mode=compile_mode) + static KV cache
+  compile_mode: reduce-overhead
+  profile_batch_size: null      # batch for the post-window torch.profiler pass; null => max_concurrency, else 1
+  profile_input_len: null       # null => load.input_len
+  profile_output_len: null      # null => load.output_len
 
 load:
   dataset: random               # random | sharegpt | sonnet
@@ -62,14 +74,26 @@ slo:                            # goodput definition
 
 Points sharing a *server fingerprint* (stack, model, revision, quantization,
 dtype, max_model_len, gpu_memory_utilization, max_num_seqs, prefix caching,
-extra args, port, plus the llama.cpp fields) reuse one running server process.
+extra args, port, plus the llama.cpp fields and the pytorch fields other than
+the profile shape) reuse one running server process.
 Change any of those and the server restarts — which is also why changing one
 mid-series breaks comparability and requires rerunning the affected points.
 
-This is why E4's two arms cost different amounts of wall clock. Concurrency is
-a *client-side* limit for vLLM, so all three vLLM points share one fingerprint
-and one model load; llama.cpp sizes its slots and KV context at startup, so
-each of its points needs its own.
+This is why E4's arms cost different amounts of wall clock. Concurrency is a
+*client-side* limit for vLLM and for the pytorch arm, so their three points
+each share one fingerprint and one model load; llama.cpp sizes its slots and
+KV context at startup, so each of its points needs its own. The pytorch
+`compile: true` control is a different fingerprint and loads again.
+
+## Compiled pytorch points are fixed-concurrency only
+
+`compile: true` uses transformers' static KV cache and recompiles for every new
+(batch size, cache length) pair. At a fixed `max_concurrency` with identical
+request shapes the warmup absorbs that — size `protocol.warmup_prompts` up for
+it, as `e4/pytorch_c8_compile.yaml` does. Under Poisson arrivals the batch
+size varies request to request and the server would recompile inside the
+measured window, so do not write a compiled point with a finite
+`request_rate`.
 
 ## Before running any point
 

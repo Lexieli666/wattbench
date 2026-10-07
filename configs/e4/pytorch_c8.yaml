@@ -1,0 +1,15 @@
+# E4, PyTorch arm, concurrency 8. The first point where batching policy matters:
+# the client keeps 8 requests in flight, the server decodes whatever was waiting
+# when the previous batch finished, and anything that arrived mid-batch queues.
+extends: ../_base_7b_pytorch.yaml
+experiment: E4
+point_id: e4_pytorch_bf16_c8
+description: E4 stack comparison, HF transformers + PyTorch, BF16, concurrency 8, chat shape
+
+load:
+  request_rate: inf
+  max_concurrency: 8
+  num_prompts: 800
+
+protocol:
+  warmup_prompts: 96
