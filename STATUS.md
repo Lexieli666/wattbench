@@ -179,10 +179,10 @@ To run it, in one session:
 
 Expect, before believing any of it: `generation_tokens_total` on `/metrics`
 equal to the bench's `total_output_tokens`; `all_requests_completed` PASS;
-`gpu_memory.torch_max_memory_allocated_gib` ≈ 15.2 GiB of weights plus a KV
-term that scales with concurrency; and the c1 point within the same order of
-magnitude as vLLM's c1 — if it is 10× slower, suspect the SDPA backend or a
-CPU-side sync per step before suspecting the card. If the compiled point
+`gpu_memory.torch_max_memory_allocated_gib` ≈ 15.2 GB (14.19 GiB) of weights
+plus a KV term that scales with concurrency; and the c1 point within the same
+order of magnitude as vLLM's c1 — if it is 10× slower, suspect the SDPA backend
+or a CPU-side sync per step before suspecting the card. If the compiled point
 recompiles mid-window the server log says so (`torch._dynamo` lines); then
 either lengthen `protocol.warmup_s` for it or drop the control, never widen
 the window.
