@@ -988,6 +988,8 @@ def assemble(args: argparse.Namespace) -> int:
     }
 
     result["sanity"] = sanity_checks(result)
+    result["status"] = derive_status(args.status, bench.get("completed"),
+                                     cfg["load"]["num_prompts"], result["sanity"])
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
     with open(args.out, "w") as fh:
@@ -999,7 +1001,36 @@ def assemble(args: argparse.Namespace) -> int:
         print("[harness] SANITY FAILURES:", file=sys.stderr)
         for c in failed:
             print(f"  - {c['name']}: {c['detail']}", file=sys.stderr)
+    if result["status"] != "ok":
+        print(f"[harness] status={result['status']}: {bench.get('completed')}/"
+              f"{cfg['load']['num_prompts']} requests completed", file=sys.stderr)
     return 0
+
+
+def derive_status(passed: str, completed: int | None, requested: int | None,
+                  sanity: dict) -> str:
+    """The record's status, decided from what the run delivered.
+
+    The load generator writing a result file is not evidence that anything was
+    served: on 2026-10-07 a compiled server died during warmup, all 800
+    requests failed at connect, and the record was still written `ok`. So the
+    caller's status is only an input here:
+
+      failed         no request completed (or the count is missing)
+      partial        some requests completed, not all
+      <passed>       the caller already knew it was not ok (e.g. bench_failed)
+      sanity_failed  every request completed, but a sanity check failed
+      ok             every request completed and no sanity check failed
+    """
+    if not completed:
+        return "failed"
+    if requested and completed < requested:
+        return "partial"
+    if passed != "ok":
+        return passed
+    if sanity.get("overall") == "FAIL":
+        return "sanity_failed"
+    return "ok"
 
 
 # --------------------------------------------------------------------------

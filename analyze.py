@@ -74,6 +74,7 @@ def load_results(experiment: str | None = None, include_failed: bool = False,
     silently dropped.
     """
     out = []
+    failed = 0
     for path in sorted(glob.glob(os.path.join(RAW, "*.json"))):
         if path.endswith(".power.json"):
             continue
@@ -86,11 +87,20 @@ def load_results(experiment: str | None = None, include_failed: bool = False,
         if r.get("schema_version") != 1:
             continue
         r["_path"] = os.path.basename(path)
-        if not include_failed and r.get("status") != "ok":
-            continue
         if experiment and r.get("experiment") != experiment:
             continue
+        # A run that completed no request measured nothing, so it is in no
+        # table, include_failed or not. The completed == 0 test also catches
+        # records assembled before harness.py derived `failed` itself.
+        if r.get("status") == "failed" or (r.get("metrics") or {}).get("completed") == 0:
+            failed += 1
+            continue
+        if not include_failed and r.get("status") != "ok":
+            continue
         out.append(r)
+    if failed:
+        print(f"[analyze] {failed} failed run(s) excluded (no request completed); "
+              f"they stay in results/raw/", file=sys.stderr)
 
     if include_superseded:
         return out
@@ -298,6 +308,7 @@ def row_view(r: dict) -> dict:
         "max_concurrency": load.get("max_concurrency"),
         "duration_s": m.get("duration"),
         "completed": m.get("completed"),
+        "issued": load.get("num_prompts"),
         "req_throughput": m.get("request_throughput"),
         "out_tok_throughput": m.get("output_throughput"),
         "total_tok_throughput": m.get("total_token_throughput"),
@@ -692,6 +703,33 @@ def stack_of(row: dict) -> str:
     return str(row.get("stack") or "vllm")
 
 
+def _dropped_requests(row: dict) -> bool:
+    issued, completed = row.get("issued"), row.get("completed")
+    return bool(issued) and completed is not None and completed < issued
+
+
+def is_served(row: dict) -> bool:
+    """A row is a measurement only if its record is `ok`, every issued request
+    completed, and it produced tokens. The last two guard records assembled
+    before harness.py derived the status itself, when a partial run, or one
+    with nothing to show, could still be written `ok`."""
+    return (row.get("status") == "ok" and bool(row.get("completed"))
+            and not _dropped_requests(row) and bool(row.get("out_tok_throughput")))
+
+
+def status_label(row: dict) -> str:
+    """The status column: `served`, or the record's own status. Never `served`
+    for a partial run or a run with zero throughput."""
+    if is_served(row):
+        return "served"
+    status = row.get("status") or "?"
+    if status != "ok":
+        return status
+    if not row.get("completed"):
+        return "failed"
+    return "partial" if _dropped_requests(row) else "no output"
+
+
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     """95% Wilson score interval for a proportion.
 
@@ -882,7 +920,7 @@ def _stacks_memory_and_gpu_time(rows: list[dict], concs: list, stacks: list[str]
     for c in concs:
         for st in stacks:
             r = next((x for x in rows if x["max_concurrency"] == c
-                      and stack_of(x) == st and x["status"] == "ok"), None)
+                      and stack_of(x) == st and is_served(x)), None)
             if not r:
                 continue
             body.append([
@@ -952,15 +990,15 @@ def _stacks_compile_control(rows: list[dict]) -> list[str]:
     for r in sorted(comp, key=lambda x: int(x["max_concurrency"] or 0)):
         base = next((x for x in rows if not x["compiled"] and stack_of(x) == "pytorch"
                      and x["max_concurrency"] == r["max_concurrency"]
-                     and x["status"] == "ok"), None)
+                     and is_served(x)), None)
 
         def rel(field: str) -> str:
             if not base or base.get(field) in (None, 0) or r.get(field) is None:
                 return "-"
             return f"{(r[field] / base[field] - 1) * 100:+.1f}%"
 
-        if r["status"] != "ok":
-            body.append([str(r["max_concurrency"]), r["status"]] + ["--"] * 7)
+        if not is_served(r):
+            body.append([str(r["max_concurrency"]), status_label(r)] + ["--"] * 7)
             continue
         body.append([
             str(r["max_concurrency"]), "served",
@@ -1014,7 +1052,7 @@ def cmd_stacks(args: argparse.Namespace) -> str:
                 continue
             r = match[0]
             base = next((x for x in main_rows if x["max_concurrency"] == c
-                         and stack_of(x) == "vllm"), None)
+                         and stack_of(x) == "vllm" and is_served(x)), None)
 
             def rel(field: str, r=r, base=base, st=st) -> str:
                 if st == "vllm":
@@ -1023,8 +1061,8 @@ def cmd_stacks(args: argparse.Namespace) -> str:
                     return "-"
                 return f"{(r[field] / base[field] - 1) * 100:+.1f}%"
 
-            if r["status"] != "ok":
-                body.append([str(c), STACK_LABEL[st], STACK_FORMAT[st], r["status"]]
+            if not is_served(r):
+                body.append([str(c), STACK_LABEL[st], STACK_FORMAT[st], status_label(r)]
                             + ["--"] * 8)
                 continue
             body.append([
@@ -1060,7 +1098,7 @@ def cmd_stacks(args: argparse.Namespace) -> str:
     for c in concs:
         for st in stacks:
             match = [r for r in main_rows if r["max_concurrency"] == c
-                     and stack_of(r) == st and r["status"] == "ok"]
+                     and stack_of(r) == st and is_served(r)]
             if not match:
                 continue
             r = match[0]
@@ -1103,16 +1141,17 @@ def cmd_stacks(args: argparse.Namespace) -> str:
                "visible." if three else ""))
         out.append("")
         out.extend(_stacks_memory_and_gpu_time(main_rows, concs, stacks))
-        dropped = [r for r in rows if r["status"] == "ok" and r["completed"]
-                   and r["max_concurrency"]
-                   and r["completed"] < (next(
-                       ((res.get("config") or {}).get("load") or {}).get("num_prompts")
-                       for res in results if res.get("point_id") == r["point_id"]) or 0)]
+        dropped = [r for r in rows if r["max_concurrency"] and _dropped_requests(r)]
         if dropped:
             out.append(
                 "A `completed` count below the issued count is a dropped request, "
                 "kept visible rather than quietly excluded; each one also trips "
-                "this project's `all_requests_completed` sanity check.")
+                "this project's `all_requests_completed` sanity check, and the "
+                "point is marked `partial` above rather than served: "
+                + ", ".join(f"{STACK_LABEL[stack_of(r)]}"
+                            f"{' (compiled)' if r['compiled'] else ''} at "
+                            f"concurrency {r['max_concurrency']}, "
+                            f"{r['completed']}/{r['issued']}" for r in dropped) + ".")
         else:
             out.append(
                 "**Every point completed every request it issued.** That is worth "
@@ -1280,14 +1319,14 @@ def cmd_frontier(args: argparse.Namespace) -> str:
         # A rung whose server never started has no metrics, but it is not
         # "not run" -- this project reserves that phrase for work never
         # attempted, and these were attempted and failed. Say so.
-        if r["status"] != "ok":
+        if not is_served(r):
             return "--"
         return fmt(r[field], spec)
 
     def ms_cell(r: dict, field: str) -> str:
         # A saturated rung queues for minutes. ".4g" renders that as 3.664e+05,
         # which hides the single most important number in the table.
-        if r["status"] != "ok":
+        if not is_served(r):
             return "--"
         v = r[field]
         if v is None:
@@ -1299,7 +1338,7 @@ def cmd_frontier(args: argparse.Namespace) -> str:
             (r["model"] or "?").split("/")[-1],
             r["quantization"],
             fmt(r["max_model_len"], "d"),
-            r["status"] if r["status"] != "ok" else "served",
+            status_label(r),
             cell(r, "out_tok_throughput", ".4g"),
             ms_cell(r, "ttft_p50_ms"),
             ms_cell(r, "ttft_p95_ms"),
