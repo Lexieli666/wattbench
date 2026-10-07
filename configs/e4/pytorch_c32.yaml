@@ -1,0 +1,16 @@
+# E4, PyTorch arm, concurrency 32. max_batch_size (32) exactly covers the
+# offered concurrency, as --parallel does for llama.cpp. BF16 7B weights are
+# ~15.2 GiB, so 32 rows x 640 tokens of DynamicCache (~1.1 GiB) fit; the
+# record's gpu_memory section says what the allocator actually peaked at.
+extends: ../_base_7b_pytorch.yaml
+experiment: E4
+point_id: e4_pytorch_bf16_c32
+description: E4 stack comparison, HF transformers + PyTorch, BF16, concurrency 32, chat shape
+
+load:
+  request_rate: inf
+  max_concurrency: 32
+  num_prompts: 800
+
+protocol:
+  warmup_prompts: 96

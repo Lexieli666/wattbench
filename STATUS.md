@@ -1,7 +1,6 @@
 # Status and remaining work
 
-Updated 2026-08-17, at the v0.2 tag. Everything below is recoverable from
-the repo alone.
+Updated 2026-10-07. Everything below is recoverable from the repo alone.
 
 ## Done (measured, committed, analysed)
 
@@ -19,6 +18,8 @@ the repo alone.
 | v0.2 R1 | duty-cycle cost curve + sensitivity rows (re-analysis only) |
 | v0.2 R2 | GSM8K guard for both E4 arms at n=200 |
 | v0.2 R3 | FP8 on Ada attempted; it serves, one point recorded |
+| M9 third stack (harness) | `pytorch_server.py`, `configs/_base_7b_pytorch.yaml`, `configs/e4/pytorch_*.yaml`, `run_e4_pytorch.sh`; protocol-tested on CPU, **not yet measured** |
+| M9 memory + GPU time | `gpu_memory` / `gpu_time` / `profile` sections in every new record; `analyze.py memory` fills the peak-memory column for every existing run from its committed power log |
 
 Regenerate every table and plot from raw data, in this order and with the venv
 python — system `python3` has no matplotlib and writes the tables before it
@@ -139,10 +140,56 @@ fails at the plots, so a partial run looks like a success:
    build is recorded: the optional `vllm.third_party.deep_gemm` backend failed
    to import (no `CUDA_HOME`); the CUTLASS path served the whole run.
 
+## Open: M9, the PyTorch arm, is harnessed and unmeasured (2026-10-07)
+
+What exists: a third serving stack, HF transformers + plain `model.generate`,
+behind the same OpenAI-compatible endpoint, load generator, transport, power
+poller and `/metrics` scrape as the other two (METHODOLOGY §7c). Static
+batching is left as it is because it is the property under test; the queue it
+creates is exported into the same column vLLM's queue fills. It serves BF16 —
+plain transformers has no int4 path that is still "just PyTorch" — so the E4
+format caveat widens to three formats, and the like-for-like format control is
+the E1/E2 vLLM BF16 server. Every new record also carries peak GPU memory from
+two instruments and GPU time per token from two instruments, each named for
+what it measures (METHODOLOGY §3b); the nvidia-smi memory peak is derived at
+read time for all existing runs, no raw file rewritten.
+
+What was verified without a GPU: the wire protocol against a tiny local
+checkpoint on CPU (`tests/test_pytorch_server.py` — one SSE chunk per token,
+usage in the final chunk, `finish_reason` on the last token chunk, both
+`Connection: close` and chunked framing, batching of concurrent requests,
+`/metrics` counters, `/wattbench/profile`, context-length rejection, the chat
+path the guard uses), `harness.py export-env` for every new config, and
+`analyze.py` against the committed E4 records. What was **not** verified: a
+real `vllm bench serve` client against the server, CUDA-event timing, the
+profiler's kernel accounting, and `torch.compile` with a static cache on
+transformers ≥ 5 — all of which need the 4090.
+
+To run it, in one session:
+
+```bash
+./baseline.sh E4-pytorch                 # fresh idle baseline first
+./run.sh --force configs/e4/vllm_c8.yaml # one vLLM point as a drift check
+./run_e4_pytorch.sh                      # c1/c8/c32, compile control, guard n=200
+~/wattbench-venv/bin/python ./analyze.py stacks --experiment E4
+~/wattbench-venv/bin/python ./analyze.py memory
+```
+
+Expect, before believing any of it: `generation_tokens_total` on `/metrics`
+equal to the bench's `total_output_tokens`; `all_requests_completed` PASS;
+`gpu_memory.torch_max_memory_allocated_gib` ≈ 15.2 GiB of weights plus a KV
+term that scales with concurrency; and the c1 point within the same order of
+magnitude as vLLM's c1 — if it is 10× slower, suspect the SDPA backend or a
+CPU-side sync per step before suspecting the card. If the compiled point
+recompiles mid-window the server log says so (`torch._dynamo` lines); then
+either lengthen `protocol.warmup_s` for it or drop the control, never widen
+the window.
+
 ## Remaining
 
 Nothing blocking v0.2. Optional next work, in rough order of value:
 
+0. **Measure M9** (above).
 1. **Stretch items from plan §6**, untouched: prefix caching on/off for the RAG
    shape, and speculative decoding with a 1.5B draft model.
 2. **The keep-alive result deserves a second client.** Everything here is
@@ -161,9 +208,9 @@ Nothing blocking v0.2. Optional next work, in rough order of value:
   consumer, not the card. Two E4 windows sixteen minutes apart came back 7.9%
   and 0.0% contaminated, which is why the statistic has to be robust rather than
   the window clean.
-- **Never reuse a non-idle vLLM server.** A server carrying another run's
+- **Never reuse a non-idle server.** A vLLM server carrying another run's
   requests measured 33 ms ITL at 192 W where a fresh one measured 17 ms at
-  312 W. `run.sh` now gates on quiescence.
+  312 W. `run.sh` now gates on quiescence, for all three stacks.
 - **E0's variance bar is regime-specific.** Unsaturated: 0.16% energy, 0.48%
   TTFT p95. Saturated: 1.09% energy, 5.83% TTFT p95. Cross-session tail latency
   drifts ~2%. Do not borrow one regime's bar for another.

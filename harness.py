@@ -8,6 +8,12 @@ right in Python than in bash. Sub-commands:
   provenance    capture stack/driver/GPU/git state as JSON
   assemble      bench JSON + power JSON + provenance -> one raw result file
   validate      sanity-check an assembled raw result
+  memory        derive the gpu_memory section for an EXISTING raw result from
+                its committed .power.json / .kv.json, without rewriting it
+
+Three serving stacks share this file: vLLM, llama.cpp (E4) and the HF
+transformers + PyTorch arm (pytorch_server.py). `server.stack` selects the
+flag builder; everything downstream of the server is identical by design.
 
 The assembled file in results/raw/ is the only thing downstream analysis is
 allowed to read, so everything needed to interpret or reproduce a number has
@@ -70,6 +76,20 @@ DEFAULTS = {
         # construction, which is what makes the two arms comparable at all.
         "tokenizer": None,
         "served_model_name": None,
+        # --- pytorch only (HF transformers + model.generate) -------------------
+        # The analogue of max_num_seqs: rows per static batch. Requests beyond
+        # it wait for the next batch, and that queue is a measured quantity.
+        "max_batch_size": 32,
+        "batch_wait_ms": 0,            # hold a forming batch for late arrivals; 0 = no
+        "attn_implementation": "sdpa", # sdpa | eager | flash_attention_2 | null
+        "compile": False,              # torch.compile + static KV cache
+        "compile_mode": "reduce-overhead",
+        # Shape of the synthetic batch /wattbench/profile runs AFTER the
+        # measured window. null batch => the point's max_concurrency, else 1;
+        # null lengths => the point's input_len / output_len.
+        "profile_batch_size": None,
+        "profile_input_len": None,
+        "profile_output_len": None,
     },
     "load": {
         "backend": "vllm",
@@ -142,6 +162,8 @@ def server_fingerprint(cfg: dict) -> str:
         "extra_args", "port",
         "gguf_repo", "gguf_file", "n_gpu_layers", "parallel", "ctx_size",
         "cont_batching", "flash_attn",
+        "max_batch_size", "batch_wait_ms", "attn_implementation", "compile",
+        "compile_mode",
     ]
     payload = json.dumps({k: s.get(k) for k in keys}, sort_keys=True, default=str)
     import hashlib
@@ -226,6 +248,62 @@ def llamacpp_server_args(cfg: dict) -> list[str]:
     return args
 
 
+def pytorch_server_args(cfg: dict) -> list[str]:
+    """Flags for `pytorch_server.py`, the HF transformers + model.generate arm.
+
+    Same rule as the llama.cpp arm: the stack runs at its own defaults except
+    where the workload forces a choice. Here that is the batch ceiling (the
+    analogue of max_num_seqs), the context length, and the dtype. Attention
+    implementation is pinned to SDPA because "the checkpoint default" differs
+    across transformers versions, and the fingerprint has to mean one thing.
+    """
+    s = cfg["server"]
+    args = [
+        "--model", str(s["model"]),
+        "--host", "127.0.0.1",
+        "--port", str(s["port"]),
+        "--dtype", str(s.get("dtype") or "bfloat16"),
+        "--max-model-len", str(s.get("max_model_len") or 4096),
+        "--max-batch-size", str(s.get("max_batch_size") or 32),
+        "--batch-wait-ms", str(s.get("batch_wait_ms") or 0),
+        "--served-model-name", str(s.get("served_model_name") or s["model"]),
+    ]
+    if s.get("revision"):
+        args += ["--revision", str(s["revision"])]
+    if s.get("tokenizer"):
+        args += ["--tokenizer", str(s["tokenizer"])]
+    if s.get("attn_implementation") is not None:
+        args += ["--attn-implementation", str(s["attn_implementation"])]
+    if s.get("compile"):
+        args += ["--compile", "--compile-mode", str(s.get("compile_mode") or "reduce-overhead")]
+    args += [str(x) for x in (s.get("extra_args") or [])]
+    return args
+
+
+STACK_SERVER_ARGS = {
+    "vllm": server_args,
+    "llamacpp": llamacpp_server_args,
+    "pytorch": pytorch_server_args,
+}
+
+
+def profile_shape(cfg: dict) -> tuple[int, int, int]:
+    """(batch, input_len, output_len) for the post-window profiler pass.
+
+    Defaults to the point's own shape, and to its concurrency as the batch --
+    for a fixed-concurrency point that is the batch the server actually saw.
+    A Poisson point has no single batch size, so it profiles at 1 unless the
+    config says otherwise, and the record says which it was.
+    """
+    s, l = cfg["server"], cfg["load"]
+    batch = s.get("profile_batch_size")
+    if batch in (None, "", "auto"):
+        batch = l.get("max_concurrency") or 1
+    in_len = s.get("profile_input_len") or l.get("input_len") or 512
+    out_len = s.get("profile_output_len") or l.get("output_len") or 128
+    return int(batch), int(in_len), int(out_len)
+
+
 def effective_num_prompts(cfg: dict) -> int:
     """Prompt count that satisfies both protocol minimums at this offered rate.
 
@@ -270,7 +348,11 @@ def export_env(cfg: dict) -> str:
     """Emit shell exports consumed by run.sh."""
     s, l, p = cfg["server"], cfg["load"], cfg["protocol"]
     stack = str(s.get("stack") or "vllm")
-    args = llamacpp_server_args(cfg) if stack == "llamacpp" else server_args(cfg)
+    if stack not in STACK_SERVER_ARGS:
+        raise SystemExit(f"[harness] unknown server.stack {stack!r}; "
+                         f"one of {sorted(STACK_SERVER_ARGS)}")
+    args = STACK_SERVER_ARGS[stack](cfg)
+    prof_batch, prof_in, prof_out = profile_shape(cfg)
     # The name the endpoint answers to. vLLM serves under the HF repo id; the
     # llama.cpp arm is given the same string via --alias so the load generator
     # sends identical request bodies to both.
@@ -304,6 +386,10 @@ def export_env(cfg: dict) -> str:
         f"WB_LOAD_EXTRA={shlex.quote(' '.join(shlex.quote(str(a)) for a in (l.get('extra_args') or [])))}",
         f"WB_SLO_TTFT_S={shlex.quote(str(cfg['slo']['ttft_p95_s']))}",
         f"WB_SLO_E2E_S={shlex.quote(str(cfg['slo']['e2e_p95_s']))}",
+        # Read only by the pytorch stack's post-window profiler pass.
+        f"WB_PROFILE_BATCH_SIZE={prof_batch}",
+        f"WB_PROFILE_INPUT_LEN={prof_in}",
+        f"WB_PROFILE_OUTPUT_LEN={prof_out}",
     ]
     return "\n".join(f"export {x}" for x in lines)
 
@@ -405,6 +491,7 @@ def provenance() -> dict:
             "vllm": pkg_version("vllm"),
             "torch": pkg_version("torch"),
             "transformers": pkg_version("transformers"),
+            "accelerate": pkg_version("accelerate"),
             "flashinfer": pkg_version("flashinfer-python") or pkg_version("flashinfer"),
             "xformers": pkg_version("xformers"),
             "torch_cuda": _torch_cuda(),
@@ -415,7 +502,8 @@ def provenance() -> dict:
             k: os.environ.get(k)
             for k in ("HF_HOME", "VLLM_ATTENTION_BACKEND", "CUDA_VISIBLE_DEVICES",
                       "VLLM_USE_V1", "VLLM_USE_V2_MODEL_RUNNER",
-                      "VLLM_USE_FLASHINFER_SAMPLER", "WATTBENCH_NVIDIA_SMI")
+                      "VLLM_USE_FLASHINFER_SAMPLER", "WATTBENCH_NVIDIA_SMI",
+                      "PYTORCH_CUDA_ALLOC_CONF", "TORCHINDUCTOR_CACHE_DIR")
             if os.environ.get(k)
         },
     }
@@ -627,6 +715,117 @@ def read_failure(server_log: str | None) -> dict:
     return out
 
 
+def gpu_memory_section(power: dict | None, kv: dict | None,
+                       memory: dict | None, stack: str) -> dict:
+    """Peak GPU memory for the run, from whichever instruments saw it.
+
+    Two instruments, and they do not measure the same thing, which is why both
+    are kept with their names attached rather than merged into one "VRAM"
+    column:
+
+    * `nvidia-smi memory.used`, sampled at ~2 Hz by the power poller for every
+      stack. This is what the driver has handed out. For vLLM it is nearly
+      flat at gpu_memory_utilization x card, because vLLM pre-allocates its KV
+      pool at startup -- so the peak says how much the server RESERVED, not
+      how much it USED. For llama.cpp it is weights plus the fixed per-slot KV
+      budget. It is also the only one of the two available for the 83 runs
+      that predate this section, which is why it comes first.
+    * `torch.cuda.max_memory_allocated`, read off the pytorch arm's own
+      process. This is live tensor bytes at the high-water mark -- weights,
+      activations, and the DynamicCache as it actually grew -- and it is the
+      number the nvidia-smi figure cannot give for a pre-allocating server.
+      `max_memory_reserved` is the allocator's pool, the closer analogue of
+      the nvidia-smi figure.
+    """
+    out: dict = {"available": False}
+    smi_peak = (power or {}).get("mem_used_mib_max")
+    if smi_peak is not None:
+        out.update({
+            "available": True,
+            "nvidia_smi_peak_mib": smi_peak,
+            "nvidia_smi_peak_gib": round(smi_peak / 1024.0, 3),
+            "nvidia_smi_note": (
+                "memory.used over the measurement window, ~2 Hz. For vLLM this "
+                "is the pre-allocated pool (gpu_memory_utilization), not live use."
+                if stack == "vllm" else
+                "memory.used over the measurement window, ~2 Hz."),
+        })
+    torch_alloc = None
+    if kv and kv.get("available"):
+        torch_alloc = (kv.get("max_memory_allocated_bytes") or {}).get("max")
+        torch_resv = (kv.get("max_memory_reserved_bytes") or {}).get("max")
+        if torch_alloc is not None:
+            out.update({
+                "available": True,
+                "torch_max_memory_allocated_gib": round(torch_alloc / 2**30, 3),
+                "torch_max_memory_reserved_gib": (
+                    round(torch_resv / 2**30, 3) if torch_resv is not None else None),
+                "torch_note": ("torch.cuda.max_memory_allocated / max_memory_reserved, "
+                               "scraped from the server's /metrics; max over the window"),
+            })
+    if memory:
+        # Snapshot taken by run.sh at window end, straight from the process.
+        out["torch_snapshot_at_window_end"] = {
+            k: memory.get(k) for k in (
+                "memory_allocated_bytes", "max_memory_allocated_bytes",
+                "memory_reserved_bytes", "max_memory_reserved_bytes",
+                "model_weights_bytes", "device_total_bytes")
+            if memory.get(k) is not None}
+        w = memory.get("model_weights_bytes")
+        if w:
+            out["model_weights_gib"] = round(w / 2**30, 3)
+            if torch_alloc:
+                out["torch_non_weight_peak_gib"] = round((torch_alloc - w) / 2**30, 3)
+    if not out["available"]:
+        out["reason"] = "no power log and no allocator metrics for this run"
+    return out
+
+
+def profile_section(prof: dict | None, cfg: dict) -> dict:
+    """The post-window torch.profiler pass, trimmed to what a table needs."""
+    if not prof:
+        return {"available": False, "reason": "not collected (not the pytorch stack, "
+                                              "or the profile pass failed)"}
+    if prof.get("error"):
+        return {"available": False, "reason": prof["error"]}
+    out = dict(prof)
+    out["available"] = True
+    out["when"] = "after the measurement window closed; never inside it"
+    return out
+
+
+def gpu_time_section(kv: dict | None) -> dict:
+    """GPU-stream time per token, from the pytorch arm's own counters.
+
+    `cuda_time_total_ms` is CUDA-event elapsed time around each generate()
+    call, so its delta over the window is time the GPU stream spent inside
+    generate() -- kernels plus the gaps the HF decode loop leaves between
+    them. Divided by generated tokens it is the per-token GPU cost as this
+    stack actually pays it; divided by the window it is how busy the card was.
+    """
+    if not kv or not kv.get("available"):
+        return {"available": False, "reason": "no server metrics"}
+    cuda_ms = kv.get("cuda_time_total_ms_delta")
+    if cuda_ms is None:
+        return {"available": False,
+                "reason": "stack exports no CUDA-event time counter (only the pytorch arm does)"}
+    gen = kv.get("generation_tokens_total_delta") or 0
+    out = {
+        "available": True,
+        "cuda_time_ms_in_window": round(cuda_ms, 1),
+        "prefill_time_ms_in_window": kv.get("prefill_time_total_ms_delta"),
+        "generate_calls_in_window": kv.get("generate_calls_total_delta"),
+        "gpu_ms_per_output_token": round(cuda_ms / gen, 4) if gen else None,
+    }
+    win_s = kv.get("window_s")
+    if win_s:
+        out["gpu_busy_frac"] = round(cuda_ms / (win_s * 1000.0), 4)
+    calls = kv.get("generate_calls_total_delta")
+    if calls:
+        out["output_tokens_per_generate_call"] = round(gen / calls, 1) if gen else None
+    return out
+
+
 def assemble_unserved(args: argparse.Namespace, cfg: dict, prov: dict) -> int:
     """Write a record for a configuration that never served a request.
 
@@ -653,6 +852,9 @@ def assemble_unserved(args: argparse.Namespace, cfg: dict, prov: dict) -> int:
         "server_metrics": {"available": False, "reason": args.status},
         "goodput": {"available": False, "reason": args.status},
         "energy": {},
+        "gpu_memory": {"available": False, "reason": args.status},
+        "gpu_time": {"available": False, "reason": args.status},
+        "profile": {"available": False, "reason": args.status},
         "failure": failure,
         "artifacts": {
             "bench_json": None,
@@ -679,6 +881,9 @@ def assemble(args: argparse.Namespace) -> int:
     power = _load_json(args.power_json)
     kv = _load_json(args.kv_json)
     prov = _load_json(args.provenance) or provenance()
+    prof = _load_json(getattr(args, "profile_json", None))
+    memory = _load_json(getattr(args, "memory_json", None))
+    stack = str(cfg["server"].get("stack") or "vllm")
 
     if bench is None:
         if args.status == "ok":
@@ -762,12 +967,22 @@ def assemble(args: argparse.Namespace) -> int:
         "server_metrics": kv or {"available": False, "reason": "not collected"},
         "goodput": good,
         "energy": energy,
+        # Peak GPU memory and GPU-stream time. Both are "what the card was
+        # doing", like energy, and neither was recorded before 2026-10; for
+        # the runs that predate this, analyze.py derives the nvidia-smi peak
+        # at read time from the committed .power.json rather than rewriting
+        # raw files (results/raw/ is append-only).
+        "gpu_memory": gpu_memory_section(power, kv, memory, stack),
+        "gpu_time": gpu_time_section(kv),
+        "profile": profile_section(prof, cfg),
         "artifacts": {
             "bench_json": os.path.basename(args.bench_json) if args.bench_json else None,
             "power_csv": os.path.basename(args.power_csv) if args.power_csv else None,
             "kv_csv": os.path.basename(args.kv_csv) if args.kv_csv else None,
             "power_json": os.path.basename(args.power_json) if args.power_json else None,
             "server_log": os.path.basename(args.server_log) if args.server_log else None,
+            "profile_json": (os.path.basename(args.profile_json)
+                             if getattr(args, "profile_json", None) and prof else None),
         },
         "notes": args.note or [],
     }
@@ -905,6 +1120,35 @@ def validate(args: argparse.Namespace) -> int:
     return 0 if s["overall"] == "PASS" else 1
 
 
+def derived_gpu_memory(result: dict, raw_dir: str | None = None) -> dict:
+    """gpu_memory for a record that predates the section, from its sidecars.
+
+    The .power.json committed beside every served run already carries the
+    nvidia-smi memory peak over the window (power_log.py has recorded
+    `mem_used_mib_max` since the first session), and the .kv.json carries
+    allocator gauges for pytorch runs. So the section is recoverable for all
+    existing runs without touching a raw file. analyze.py calls this at read
+    time; `harness.py memory --raw <file>` prints it for one record.
+    """
+    if result.get("gpu_memory", {}).get("available"):
+        return result["gpu_memory"]
+    raw_dir = raw_dir or os.path.join(REPO, "results", "raw")
+    arts = result.get("artifacts") or {}
+    power = _load_json(os.path.join(raw_dir, arts["power_json"])) if arts.get("power_json") else None
+    kv = result.get("server_metrics")
+    stack = str(((result.get("config") or {}).get("server") or {}).get("stack") or "vllm")
+    out = gpu_memory_section(power, kv if (kv or {}).get("available") else None, None, stack)
+    out["derived_at_read_time"] = True
+    return out
+
+
+def memory_cmd(args: argparse.Namespace) -> int:
+    with open(args.raw) as fh:
+        result = json.load(fh)
+    print(json.dumps(derived_gpu_memory(result, args.raw_dir), indent=2))
+    return 0
+
+
 # --------------------------------------------------------------------------
 # cli
 # --------------------------------------------------------------------------
@@ -932,6 +1176,8 @@ def main() -> int:
     a.add_argument("--kv-csv")
     a.add_argument("--provenance")
     a.add_argument("--server-log")
+    a.add_argument("--profile-json", help="pytorch stack: /wattbench/profile output")
+    a.add_argument("--memory-json", help="pytorch stack: /wattbench/memory at window end")
     a.add_argument("--out", required=True)
     a.add_argument("--status", default="ok")
     a.add_argument("--idle-baseline-file")
@@ -946,6 +1192,11 @@ def main() -> int:
     v = sub.add_parser("validate")
     v.add_argument("--raw", required=True)
 
+    mm = sub.add_parser("memory")
+    mm.add_argument("--raw", required=True)
+    mm.add_argument("--raw-dir", default=None,
+                    help="where the .power.json sidecar lives (default: results/raw)")
+
     args = ap.parse_args()
     if args.cmd == "export-env":
         print(export_env(load_config(args.config)))
@@ -957,6 +1208,8 @@ def main() -> int:
         return assemble(args)
     if args.cmd == "validate":
         return validate(args)
+    if args.cmd == "memory":
+        return memory_cmd(args)
     return 2
 
 

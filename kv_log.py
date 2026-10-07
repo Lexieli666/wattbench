@@ -9,10 +9,12 @@ power logger and is summarised over the same measurement window.
   kv_log.py poll --port 8000 --out run.kv.csv --interval 2
   kv_log.py summarize --log run.kv.csv --start ISO --end ISO
 
-Both stacks in this project are scraped through the same columns: llama.cpp's
-`llamacpp:*` names are mapped onto vLLM's where they mean the same thing (see
-ALIASES), so E4 can put the two side by side without a second code path in
-every table. Where a stack genuinely has no counterpart the column is simply
+All three stacks in this project are scraped through the same columns:
+llama.cpp's `llamacpp:*` and the PyTorch arm's `pytorch:*` names are mapped
+onto vLLM's where they mean the same thing (see ALIASES), so the stack table
+can put them side by side without a second code path per stack. Names with no
+vLLM counterpart (the PyTorch arm's allocator gauges and CUDA-time counters)
+keep their own prefix and are summarised the same way. Where a stack genuinely has no counterpart the column is simply
 absent -- llama.cpp does not preempt, so it reports no preemption counter, and
 that shows up as "not measured" rather than as zero.
 
@@ -42,11 +44,24 @@ GAUGES = [
     "vllm:num_requests_running",
     "vllm:num_requests_waiting",
     "vllm:gpu_prefix_cache_hit_rate",
+    # pytorch arm only: the allocator's own view of the process, which the
+    # nvidia-smi figure in the power log cannot give for a pre-allocating
+    # server. Summarised as max over the window == the peak.
+    "pytorch:memory_allocated_bytes",
+    "pytorch:max_memory_allocated_bytes",
+    "pytorch:memory_reserved_bytes",
+    "pytorch:max_memory_reserved_bytes",
+    "pytorch:batch_size_last",
 ]
 COUNTERS = [
     "vllm:num_preemptions_total",
     "vllm:prompt_tokens_total",
     "vllm:generation_tokens_total",
+    # pytorch arm only: CUDA-event time inside generate(), and how many
+    # generate() calls (static batches) the window contained.
+    "pytorch:cuda_time_total_ms",
+    "pytorch:prefill_time_total_ms",
+    "pytorch:generate_calls_total",
 ]
 FIELDS = ["timestamp"] + GAUGES + COUNTERS
 
@@ -71,10 +86,20 @@ ALIASES = {
     "llamacpp:requests_deferred": "vllm:num_requests_waiting",
     "llamacpp:prompt_tokens_total": "vllm:prompt_tokens_total",
     "llamacpp:tokens_predicted_total": "vllm:generation_tokens_total",
+    # The pytorch arm (pytorch_server.py). "running" is rows in the batch
+    # currently inside generate(); "waiting" is requests queued for the next
+    # static batch -- the queue that static batching creates and that the
+    # stack table needs to show. KV utilisation has no counterpart: a
+    # DynamicCache has no fixed pool to be a fraction of, so the column stays
+    # empty, as it does for llama.cpp. Preemptions: none, it never evicts.
+    "pytorch:num_requests_running": "vllm:num_requests_running",
+    "pytorch:num_requests_waiting": "vllm:num_requests_waiting",
+    "pytorch:prompt_tokens_total": "vllm:prompt_tokens_total",
+    "pytorch:generation_tokens_total": "vllm:generation_tokens_total",
 }
 
 LINE_RE = re.compile(
-    r"^(?P<name>(?:vllm|llamacpp):[a-z_0-9]+)(?:\{[^}]*\})?\s+(?P<value>[-0-9.eE+]+)$")
+    r"^(?P<name>(?:vllm|llamacpp|pytorch):[a-z_0-9]+)(?:\{[^}]*\})?\s+(?P<value>[-0-9.eE+]+)$")
 
 
 def scrape(url: str, timeout: float = 5.0) -> dict[str, float]:
@@ -163,6 +188,9 @@ def summarize(path: str, start: str | None, end: str | None) -> dict:
         return {"available": False, "reason": "no samples in the measurement window"}
 
     out: dict = {"available": True, "n_samples": len(rows)}
+    if lo and hi:
+        # Lets a per-window rate be formed from a counter delta downstream.
+        out["window_s"] = round((hi - lo).total_seconds(), 3)
     for name in GAUGES:
         vals = [v for v in (_f(r.get(name, "")) for r in rows) if v is not None]
         if not vals:
