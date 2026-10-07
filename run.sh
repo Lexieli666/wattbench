@@ -502,4 +502,12 @@ for n in ${NOTES+"${NOTES[@]}"}; do NOTE_ARGS+=(--note "$n"); done
   ${PROFILE_ARGS+"${PROFILE_ARGS[@]}"} \
   --out "$RESULT_JSON"
 
+# A record is written whatever happened, but only an `ok` one is a measurement.
+# Exiting 0 for the rest is how a point where every request failed once
+# counted as a success in the sweep drivers.
+REC_STATUS="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1])).get('status'))" "$RESULT_JSON")"
+if [[ "$REC_STATUS" != "ok" ]]; then
+  log "FAILED: $(basename "$RESULT_JSON") recorded with status '$REC_STATUS'"
+  exit 1
+fi
 log "done: $(basename "$RESULT_JSON")"
