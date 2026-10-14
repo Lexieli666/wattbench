@@ -74,7 +74,7 @@
   "provenance": {
     "captured_at": "2026-08-15T01:18:35.299554-07:00",
     "host": {
-      "hostname": "lexie",
+      "hostname": "rtx4090-host",
       "kernel": "6.6.114.1-microsoft-standard-WSL2",
       "os": "Ubuntu 26.04 LTS",
       "cpu": "Intel(R) Core(TM) i9-14900KF",
